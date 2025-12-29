@@ -129,7 +129,7 @@
         <button id="setupStart" class="primary" disabled>Start</button>
       </div>
 
-      <div class="tip">If the avatar doesn’t move, check “Rig:” in the app — it must say OK.</div>
+      <div class="tip">If avatars don’t load: ensure <code>uvicorn tts_server:app --port 8001</code> is running.</div>
     </div>
   </div>
 </div>
@@ -250,13 +250,11 @@
   const TTS_URL = "http://127.0.0.1:8001/tts";
   const AVATAR_LIST_URL = "http://127.0.0.1:8001/avatars";
 
-  // Frame check
   const FRAME_VIS_MIN = 0.55;
   const FRAME_MARGIN = 0.06;
   const FRAME_REMIND_EVERY_MS = 6500;
   const FRAME_OK_SPEAK_COOLDOWN_MS = 2500;
 
-  // Exercises
   const EXERCISES = [
     { id: "lateral", name: "Left Lateral Raise", hint: "Raise LEFT arm to the side up to shoulder height." },
     { id: "curl",    name: "Left Bicep Curl",   hint: "Curl LEFT wrist toward shoulder; keep elbow close." },
@@ -358,7 +356,7 @@
     processTTSQueue();
   }
 
-  // Landing refs
+  // ===== Landing refs =====
   const landingEl = document.getElementById("landing");
   const appEl = document.getElementById("app");
   const avatarNamePill = document.getElementById("avatarNamePill");
@@ -378,7 +376,7 @@
     setupExerciseEl.appendChild(opt);
   });
 
-  // App refs
+  // ===== App refs =====
   const statusEl = document.getElementById("status");
   const poseStatusEl = document.getElementById("poseStatus");
   const rigStatusEl = document.getElementById("rigStatus");
@@ -411,10 +409,7 @@
 
   const setStatus = (txt, ok) => { statusEl.textContent = txt; statusEl.className = ok ? "ok" : "bad"; };
   const setPosePill = (txt, ok) => { poseStatusEl.textContent = txt; poseStatusEl.style.color = ok ? "#00ff88" : "#ff5577"; };
-  function setRigPill(ok, text) {
-    rigStatusEl.textContent = text;
-    rigStatusEl.style.color = ok ? "#00ff88" : "#ff5577";
-  }
+  function setRigPill(ok, text) { rigStatusEl.textContent = text; rigStatusEl.style.color = ok ? "#00ff88" : "#ff5577"; }
   function setFeedback(msg, ok) {
     feedbackTextEl.textContent = msg;
     dotEl.style.background = ok ? "#00ff88" : "#ff5577";
@@ -548,7 +543,6 @@
     const a = AVATARS[lockedAvatarIndex];
     lockStateEl.textContent = `Locked: ${a.label}`;
     updateStartEnabled();
-
     stopAllTTS();
     enqueueTTS(L("Avatar locked. Now choose exercise and reps, then press Start."));
   });
@@ -582,7 +576,7 @@
     updateStartEnabled();
   }
 
-  // Avatar rigging (robust)
+  // Avatar rigging
   let avatar = null;
   const rig = { LeftArm:null, LeftForeArm:null, RightArm:null, RightForeArm:null };
   const rest = { baseQ:{}, restDir:{} };
@@ -643,10 +637,6 @@
 
     const ok = !!(rig.LeftArm && rig.LeftForeArm && rig.RightArm && rig.RightForeArm);
     setRigPill(ok, ok ? "OK" : "MISSING BONES");
-    console.log("Rig:", {
-      LeftArm: rig.LeftArm?.name, LeftForeArm: rig.LeftForeArm?.name,
-      RightArm: rig.RightArm?.name, RightForeArm: rig.RightForeArm?.name
-    });
   }
 
   function clearCurrentAvatar(){
@@ -671,7 +661,6 @@
     gltfLoader.load(glb, (gltf) => {
       avatar = gltf.scene;
       scene.add(avatar);
-
       buildRigFromAvatar(avatar);
 
       const box = new THREE.Box3().setFromObject(avatar);
@@ -831,13 +820,14 @@
     }
   }
 
-  // ===== Workout + rep counting (FULL logic restored) =====
+  // Workout + rep + set complete speaking once
   let currentExerciseId = "lateral";
   let targetReps = 12;
   let reps = 0;
   let setDone = false;
   let phase = "DOWN";
   let lastUpReachedTop = false;
+  let setCompleteSpoken = false;
 
   function updateTargetPill(){ targetPillEl.textContent = `${reps} / ${targetReps}`; }
 
@@ -846,6 +836,7 @@
     setDone = false;
     phase = "DOWN";
     lastUpReachedTop = false;
+    setCompleteSpoken = false;
     repsEl.textContent = "0";
     updateTargetPill();
     setBar(0);
@@ -855,15 +846,8 @@
   }
 
   document.getElementById("resetRepsBtn").addEventListener("click", () => resetSet());
-
-  exerciseSelectEl.addEventListener("change", () => {
-    currentExerciseId = exerciseSelectEl.value;
-    resetSet();
-  });
-
-  avatarSelectEl.addEventListener("change", () => {
-    loadAvatarByIndex(parseInt(avatarSelectEl.value, 10));
-  });
+  exerciseSelectEl.addEventListener("change", () => { currentExerciseId = exerciseSelectEl.value; resetSet(); });
+  avatarSelectEl.addEventListener("change", () => { loadAvatarByIndex(parseInt(avatarSelectEl.value, 10)); });
 
   // gating states
   let appMode = "IDLE"; // IDLE | FRAME_CHECK | WORKOUT
@@ -931,11 +915,19 @@
     return { S,E,W,v };
   }
 
+  function speakSetCompleteOnce(){
+    if (setCompleteSpoken) return;
+    setCompleteSpoken = true;
+    stopAllTTS();
+    enqueueTTS(L("Set complete! Great work."));
+  }
+
   function updateExercise(poseLm){
     if (setDone){
       repStateEl.textContent = "SET DONE";
       setFeedback(L("Set complete! Great work."), true);
       setBar(1);
+      speakSetCompleteOnce();
       return;
     }
 
@@ -963,7 +955,6 @@
     setMetrics(elbowA, heightDelta, dx, v);
 
     const VIS_OK = v >= 0.60;
-
     repStateEl.textContent = phase;
 
     if (currentExerciseId === "lateral" || currentExerciseId === "front"){
@@ -981,17 +972,18 @@
           phase = "UP";
           lastUpReachedTop = true;
         }
-      } else { // UP
+      } else {
         if (t <= 0.30){
           if (lastUpReachedTop){
             reps += 1;
             repsEl.textContent = String(reps);
             updateTargetPill();
-            enqueueTTS(pickSuccessPhrase());
+
             if (reps >= targetReps){
               setDone = true;
-              stopAllTTS();
-              enqueueTTS(L("Set complete! Great work."));
+              setCompleteSpoken = false;
+            } else {
+              enqueueTTS(pickSuccessPhrase());
             }
           }
           phase = "DOWN";
@@ -1019,11 +1011,12 @@
             reps += 1;
             repsEl.textContent = String(reps);
             updateTargetPill();
-            enqueueTTS(pickSuccessPhrase());
+
             if (reps >= targetReps){
               setDone = true;
-              stopAllTTS();
-              enqueueTTS(L("Set complete! Great work."));
+              setCompleteSpoken = false;
+            } else {
+              enqueueTTS(pickSuccessPhrase());
             }
           }
           phase = "DOWN";
@@ -1032,10 +1025,9 @@
     }
   }
 
-  // Boot avatar list
-  try {
-    await fetchAvatars();
-  } catch (e) {
+  // ===== Boot avatars + populate dropdowns =====
+  try { await fetchAvatars(); }
+  catch (e) {
     console.error(e);
     avatarNamePill.textContent = "Failed to load avatars (is tts_server running?)";
     prevAvatarBtn.disabled = true;
@@ -1043,7 +1035,7 @@
     lockBtn.disabled = true;
   }
 
-  // Start flow
+  // ===== Start flow =====
   setupStartEl.addEventListener("click", async () => {
     if (lockedAvatarIndex === null) return;
 
@@ -1064,13 +1056,8 @@
 
     loadAvatarByIndex(avatarIdx);
 
-    try {
-      await startCamera();
-    } catch (e) {
-      console.error(e);
-      setStatus("webcam failed", false);
-      return;
-    }
+    try { await startCamera(); }
+    catch (e) { console.error(e); setStatus("webcam failed", false); return; }
 
     resetSet();
     stopAllTTS();
@@ -1094,14 +1081,20 @@
     if (appEl.style.display === "none") return;
 
     resizeMain3D();
-    if (latest) driveArmsFromPose(latest);
 
+    if (latest) driveArmsFromPose(latest);
     if (appMode === "FRAME_CHECK") frameCheckTick(latest);
     else if (appMode === "WORKOUT") updateExercise(latest);
 
     renderer.render(scene, cam3);
   }
   mainLoop();
+
+  // ===== Three preview + renderer init =====
+  resizeMain3D(); resizeOverlay(); resizePreview();
+
+  // ===== Enable Start only after lock =====
+  updateStartEnabled();
 </script>
 </body>
 </html>
