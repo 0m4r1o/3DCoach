@@ -1,88 +1,91 @@
-import os
-import io
-from typing import Optional
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
+from typing import List, Dict, Any
+import os
+import glob
 
 from openai import OpenAI
 
 # =========================
-# CONFIG
+# CONFIG (hardcoded)
 # =========================
-# Put your real key in environment variable OPENAI_API_KEY
-# Placeholder requested:
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "<apikey>")
-
 TTS_MODEL = "gpt-4o-mini-tts"
 TTS_VOICE = "alloy"
+TTS_AUDIO_FORMAT = "mp3"   # keep mp3
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+AVATARS_DIR = os.path.join(BASE_DIR, "Avatars")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
-
-app = FastAPI(title="Fitness App TTS Server")
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+client = OpenAI(api_key=OPENAI_API_KEY)
+
 class TTSRequest(BaseModel):
     text: str
-    voice: Optional[str] = None
-    model: Optional[str] = None
 
 @app.get("/health")
 def health():
-    return {"ok": True, "model": TTS_MODEL, "voice": TTS_VOICE}
+    return {"ok": True, "model": TTS_MODEL, "voice": TTS_VOICE, "format": TTS_AUDIO_FORMAT}
 
-def _audio_response_to_bytes(resp) -> bytes:
-    # Works across multiple openai-python versions
-    if hasattr(resp, "iter_bytes"):
-        buf = io.BytesIO()
-        for chunk in resp.iter_bytes():
-            buf.write(chunk)
-        return buf.getvalue()
+@app.get("/avatars")
+def list_avatars() -> Dict[str, Any]:
+    avatars: List[Dict[str, str]] = []
+    if not os.path.isdir(AVATARS_DIR):
+        return {"ok": False, "error": f"Avatars directory not found: {AVATARS_DIR}", "avatars": []}
 
-    if hasattr(resp, "content") and isinstance(resp.content, (bytes, bytearray)):
-        return bytes(resp.content)
+    subdirs = [d for d in os.listdir(AVATARS_DIR) if os.path.isdir(os.path.join(AVATARS_DIR, d))]
+    subdirs.sort(key=lambda s: s.lower())
 
-    if hasattr(resp, "read"):
-        return resp.read()
+    for folder in subdirs:
+        folder_path = os.path.join(AVATARS_DIR, folder)
 
-    return bytes(resp)
+        # Prefer avatar_glb.glb if present, otherwise first *.glb
+        preferred = os.path.join(folder_path, "avatar_glb.glb")
+        if os.path.isfile(preferred):
+            glb_file = "avatar_glb.glb"
+        else:
+            glbs = sorted(glob.glob(os.path.join(folder_path, "*.glb")), key=lambda p: os.path.basename(p).lower())
+            if not glbs:
+                continue
+            glb_file = os.path.basename(glbs[0])
+
+        avatars.append({"id": folder, "label": folder, "glb": glb_file})
+
+    return {"ok": True, "avatars": avatars}
 
 @app.post("/tts")
 def tts(req: TTSRequest):
-    if not req.text or not req.text.strip():
-        return JSONResponse({"error": "Empty text"}, status_code=400)
-
-    if OPENAI_API_KEY.strip() == "<apikey>":
-        return JSONResponse(
-            {"error": "OPENAI_API_KEY is not set. Set it as an environment variable (do not keep <apikey>)."},
-            status_code=500,
-        )
-
-    model = req.model or TTS_MODEL
-    voice = req.voice or TTS_VOICE
+    text = (req.text or "").strip()
+    if not text:
+        return {"error": "text is required"}
 
     try:
-        # Your SDK doesn't support 'format', so we omit it.
-        resp = client.audio.speech.create(
-            model=model,
-            voice=voice,
-            input=req.text,
+        audio = client.audio.speech.create(
+            model=TTS_MODEL,
+            voice=TTS_VOICE,
+            input=text,
+            format=TTS_AUDIO_FORMAT
         )
-        data = _audio_response_to_bytes(resp)
-        return Response(content=data, media_type="audio/mpeg")  # usually mp3
-    except Exception as e:
-        print("TTS ERROR:", repr(e))
-        return JSONResponse({"error": str(e)}, status_code=500)
+        # IMPORTANT: return proper audio content type so browser can play it
+        return Response(content=audio.content, media_type="audio/mpeg")
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    except TypeError:
+        # Some SDK versions don't support "format"
+        audio = client.audio.speech.create(
+            model=TTS_MODEL,
+            voice=TTS_VOICE,
+            input=text
+        )
+        return Response(content=audio.content, media_type="audio/mpeg")
+
+    except Exception as e:
+        return {"error": str(e)}

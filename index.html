@@ -2,155 +2,185 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Workout MVP - Coaching + TTS (EN/AR)</title>
+  <title>3D Coach - Setup + Frame Check + Workout</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { margin:0; overflow:hidden; background:#0b0f14; font-family: system-ui, sans-serif; }
+    body { margin:0; overflow:hidden; background:#0b0f14; font-family: system-ui, sans-serif; color:#e8eef6; }
 
-    /* +13.5% camera space */
-    #wrap { position: fixed; inset: 0; display: grid; grid-template-columns: 534px 1fr; }
-    #left { position: relative; background:#0b0f14; border-right: 1px solid rgba(255,255,255,.08); }
-    #right { position: relative; }
+    #landing { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      background: radial-gradient(1200px 600px at 30% 20%, rgba(0,255,136,.10), transparent 60%),
+                  radial-gradient(1200px 600px at 70% 80%, rgba(255,85,119,.10), transparent 60%),
+                  #0b0f14;
+      padding:18px; z-index:50; }
+    .card { width:min(920px,96vw); border-radius:18px; border:1px solid rgba(255,255,255,.14);
+      background: rgba(8,12,18,.62); box-shadow: 0 20px 80px rgba(0,0,0,.55);
+      padding:18px; backdrop-filter: blur(10px);
+      display:grid; grid-template-columns: 1.1fr 1fr; gap:16px; }
+    .panel { border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.22); border-radius: 16px; padding:12px; }
+    .h1 { font-size: 18px; font-weight: 800; }
+    .sub { opacity:.82; margin-top:6px; font-size:13px; line-height:1.35; }
+    .label { font-size:12px; opacity:.80; margin-bottom:6px; }
+    select, input[type="number"] { width:100%; background:#1f2937; color:#e8eef6; border:1px solid rgba(255,255,255,.12);
+      border-radius:12px; padding:10px 10px; font-size:13px; outline:none; }
+    .btnRow { margin-top:14px; display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+    button { background:#1f2937; color:#e8eef6; border:1px solid rgba(255,255,255,.12);
+      border-radius:12px; padding:10px 12px; cursor:pointer; font-size:13px; }
+    button:hover { background:#243142; }
+    .primary { background: rgba(0,255,136,.16); border-color: rgba(0,255,136,.30); font-weight: 800; }
+    .primary:hover { background: rgba(0,255,136,.22); }
+    .ghost { background: rgba(255,255,255,.06); }
+    .tip { margin-top:10px; font-size:12px; opacity:.82; border-top:1px solid rgba(255,255,255,.10); padding-top:10px; }
+
+    #avatarPreviewWrap { position:relative; height:420px; border-radius:14px; overflow:hidden; }
+    #avatarPreview { position:absolute; inset:0; width:100%; height:100%; background:#0f1722; display:block; }
+    .carouselBar { position:absolute; left:10px; right:10px; bottom:10px; display:flex; align-items:center; gap:10px; }
+    .arrowBtn { width:44px; height:44px; border-radius:14px; }
+    #avatarNamePill { flex:1 1 auto; text-align:center; padding:10px 10px; border-radius:14px;
+      border:1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.35); font-weight:800; }
+    #lockBtn { min-width: 140px; }
+    #lockState { margin-top:10px; font-size:12px; opacity:.85; }
+
+    #app { display:none; }
+    #wrap { position: fixed; inset: 0; display:grid; grid-template-columns: 534px 1fr; }
+    #left { position:relative; background:#0b0f14; border-right:1px solid rgba(255,255,255,.08); }
+    #right { position:relative; }
     video, canvas { position:absolute; left:0; top:0; width:100%; height:100%; object-fit: cover; }
 
-    #hud {
-      position:absolute; left:12px; top:12px; z-index: 10;
-      color:#e8eef6; background: rgba(0,0,0,.52);
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 12px; padding: 12px; width: calc(100% - 24px);
-      font-size: 13px; backdrop-filter: blur(6px);
-    }
-    .row { display:flex; align-items:center; justify-content: space-between; gap:10px; margin-top:8px; }
-    .title { font-size: 14px; font-weight: 700; opacity:.95; }
-    .ok { color:#00ff88; font-weight: 700; }
-    .bad { color:#ff5577; font-weight: 700; }
-    .pill { padding: 3px 8px; border-radius: 999px; border:1px solid rgba(255,255,255,.16); }
+    #hud { position:absolute; left:12px; top:12px; z-index:10; color:#e8eef6; background: rgba(0,0,0,.52);
+      border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:12px; width: calc(100% - 24px);
+      font-size:13px; backdrop-filter: blur(6px); }
+    .rowHud { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; }
+    .title { font-size:14px; font-weight:700; opacity:.95; }
+    .ok { color:#00ff88; font-weight:700; }
+    .bad { color:#ff5577; font-weight:700; }
+    .pill { padding:3px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.16); }
     .kv { opacity:.85; }
 
-    #btns { display:flex; gap:10px; margin-top: 10px; flex-wrap: wrap; }
-    button, select {
-      background:#1f2937; color:#e8eef6; border:1px solid rgba(255,255,255,.12);
-      border-radius: 10px; padding: 8px 10px; cursor:pointer; font-size: 13px;
-    }
-    button:hover, select:hover { background:#243142; }
+    #btns { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+    #btns button, #btns select { background:#1f2937; color:#e8eef6; border:1px solid rgba(255,255,255,.12);
+      border-radius:10px; padding:8px 10px; cursor:pointer; font-size:13px; }
+    #btns button:hover, #btns select:hover { background:#243142; }
 
-    label { display:flex; align-items:center; gap:8px; margin-top:10px; opacity:.9; }
+    label.hudlab { display:flex; align-items:center; gap:8px; margin-top:10px; opacity:.9; }
     input[type="range"]{ width: 180px; }
 
-    #workoutCard{
-      margin-top: 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(8,12,18,.55);
-      padding: 10px;
-    }
-    #feedback{
-      margin-top: 10px;
-      padding: 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.35);
-      min-height: 40px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    #dot {
-      width: 10px; height:10px; border-radius: 999px;
-      background: #ff5577;
-      box-shadow: 0 0 0 3px rgba(255,85,119,.20);
-      flex: 0 0 auto;
-    }
-    #feedbackText { opacity:.95; }
+    #workoutCard{ margin-top:10px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background: rgba(8,12,18,.55); padding:10px; }
+    #feedback{ margin-top:10px; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.35);
+      min-height:40px; display:flex; align-items:center; gap:10px; }
+    #dot { width:10px; height:10px; border-radius:999px; background:#ff5577; box-shadow:0 0 0 3px rgba(255,85,119,.20); flex:0 0 auto; }
+    #bar { display:flex; gap:4px; margin-top:10px; align-items:center; }
+    .seg { width:16px; height:10px; border-radius:3px; background: rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.10); }
+    .seg.on { background: rgba(0,255,136,.85); border-color: rgba(0,255,136,.35); }
 
-    #bar { display:flex; gap:4px; margin-top: 10px; align-items:center; }
-    .seg {
-      width: 16px; height: 10px; border-radius: 3px;
-      background: rgba(255,255,255,.14);
-      border: 1px solid rgba(255,255,255,.10);
-    }
-    .seg.on {
-      background: rgba(0,255,136,.85);
-      border-color: rgba(0,255,136,.35);
-    }
-
-    #metrics {
-      margin-top: 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(8,12,18,.45);
-      padding: 10px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:8px;
-      font-size: 12px;
-    }
-    .mItem { display:flex; justify-content:space-between; gap:10px; opacity:.92; }
-    .mLabel { opacity:.75; }
-    .mVal { font-variant-numeric: tabular-nums; }
-
-    #verdict {
-      margin-top: 10px;
-      padding: 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.35);
-      min-height: 38px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      opacity: .98;
-    }
-    #verdictBadge {
-      font-weight: 800;
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(255,255,255,.08);
-    }
-    #verdictText { opacity:.95; }
+    #metrics{ margin-top:10px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background: rgba(8,12,18,.45);
+      padding:10px; display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; }
+    .mItem{ display:flex; justify-content:space-between; gap:10px; opacity:.92; }
+    .mLabel{ opacity:.75; }
+    .mVal{ font-variant-numeric: tabular-nums; }
 
     #threeCanvas { position:absolute; inset:0; }
   </style>
 </head>
 <body>
+
+<div id="landing">
+  <div class="card">
+    <div class="panel">
+      <div class="h1">Choose your Avatar</div>
+      <div class="sub">Preview with arrows → Lock Avatar.</div>
+
+      <div id="avatarPreviewWrap" class="panel" style="margin-top:12px; padding:0;">
+        <canvas id="avatarPreview"></canvas>
+        <div class="carouselBar">
+          <button class="arrowBtn ghost" id="prevAvatar">←</button>
+          <div id="avatarNamePill">Loading avatars…</div>
+          <button class="arrowBtn ghost" id="nextAvatar">→</button>
+          <button id="lockBtn" class="primary">Lock Avatar</button>
+        </div>
+      </div>
+
+      <div id="lockState">Not locked yet.</div>
+      <div class="tip">TTS speaks right after you lock avatar (if TTS server is running).</div>
+    </div>
+
+    <div class="panel">
+      <div class="h1">Workout Setup</div>
+      <div class="sub">Pick exercise, reps, language. Camera starts after Start.</div>
+
+      <div style="margin-top:12px;">
+        <div class="label">Exercise</div>
+        <select id="setupExercise"></select>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div class="label">Reps in a set</div>
+        <input id="setupReps" type="number" min="1" max="500" value="12" />
+      </div>
+
+      <div style="margin-top:12px;">
+        <div class="label">TTS Language</div>
+        <select id="setupLang">
+          <option value="en" selected>English</option>
+          <option value="ar">العربية (فصحى)</option>
+        </select>
+      </div>
+
+      <div class="btnRow">
+        <button id="setupStart" class="primary" disabled>Start</button>
+      </div>
+
+      <div class="tip">If the avatar doesn’t move, check “Rig:” in the app — it must say OK.</div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
   <div id="wrap">
     <div id="left">
       <div id="hud">
-        <div class="row">
-          <div class="title">Workout MVP</div>
+        <div class="rowHud">
+          <div class="title">3D Coach</div>
           <div class="pill" id="exerciseName">—</div>
         </div>
 
-        <div class="row">
-          <div>Status: <span id="status" class="bad">booting…</span></div>
+        <div class="rowHud">
+          <div>Status: <span id="status" class="bad">idle</span></div>
           <div>Pose: <span id="poseStatus" class="pill">—</span></div>
         </div>
 
-        <div class="row" style="margin-top:10px">
+        <div class="rowHud" style="margin-top:10px">
+          <div class="kv">Rig:</div>
+          <div class="pill" id="rigStatus">—</div>
+        </div>
+
+        <div class="rowHud" style="margin-top:10px">
           <div class="kv">Avatar</div>
           <select id="avatarSelect"></select>
         </div>
         <div class="kv">GLB path: <span id="glbPath" style="opacity:.9"></span></div>
 
-        <div class="row" style="margin-top:10px">
+        <div class="rowHud" style="margin-top:10px">
           <div class="kv">Exercise</div>
           <select id="exerciseSelect"></select>
         </div>
 
         <div id="workoutCard">
-          <div class="row">
+          <div class="rowHud">
             <div class="kv">Reps</div>
             <div class="pill" id="reps">0</div>
           </div>
-          <div class="row">
+          <div class="rowHud">
+            <div class="kv">Target</div>
+            <div class="pill" id="targetPill">0 / 0</div>
+          </div>
+          <div class="rowHud">
             <div class="kv">State</div>
             <div class="pill" id="repState">WAITING</div>
           </div>
 
           <div id="feedback">
             <div id="dot"></div>
-            <div id="feedbackText">Stand fully in frame, LEFT arm visible.</div>
+            <div id="feedbackText">—</div>
           </div>
 
           <div class="kv" style="margin-top:8px">Progress</div>
@@ -162,14 +192,9 @@
             <div class="mItem"><span class="mLabel">Side drift (dx)</span><span class="mVal" id="mDx">—</span></div>
             <div class="mItem"><span class="mLabel">Visibility</span><span class="mVal" id="mVis">—</span></div>
           </div>
-
-          <div id="verdict">
-            <div id="verdictBadge">—</div>
-            <div id="verdictText">Waiting for a rep…</div>
-          </div>
         </div>
 
-        <div class="row" style="margin-top:10px">
+        <div class="rowHud" style="margin-top:10px">
           <div class="kv">TTS Lang</div>
           <select id="ttsLang">
             <option value="en" selected>English</option>
@@ -184,7 +209,7 @@
           <button id="toggleTTSBtn">TTS: ON</button>
         </div>
 
-        <label>
+        <label class="hudlab">
           Smoothing
           <input id="smooth" type="range" min="0.05" max="0.6" step="0.05" value="0.25" />
           <span id="smoothVal">0.25</span>
@@ -201,968 +226,882 @@
       <canvas id="threeCanvas"></canvas>
     </div>
   </div>
+</div>
 
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.182.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.182.0/examples/jsm/"
-      }
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.182.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.182.0/examples/jsm/"
     }
-  </script>
+  }
+</script>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"></script>
 
-  <script type="module">
-    import * as THREE from "three";
-    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-    import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+<script type="module">
+  import * as THREE from "three";
+  import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+  import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
-    // =========================
-    // CONFIG
-    // =========================
-    const ACTIVE_ARM = "left";
-    const TTS_URL = "http://127.0.0.1:8001/tts";
+  const ACTIVE_ARM = "left";
+  const TTS_URL = "http://127.0.0.1:8001/tts";
+  const AVATAR_LIST_URL = "http://127.0.0.1:8001/avatars";
 
-    // =========================
-    // Language toggle (EN / AR MSA)
-    // =========================
-    const ttsLangEl = document.getElementById("ttsLang");
-    let TTS_LANG = "en";
+  // Frame check
+  const FRAME_VIS_MIN = 0.55;
+  const FRAME_MARGIN = 0.06;
+  const FRAME_REMIND_EVERY_MS = 6500;
+  const FRAME_OK_SPEAK_COOLDOWN_MS = 2500;
 
-    const COACHING_AR_MSA = {
-      "No body detected — stand fully in frame.": "لم يتم اكتشاف الجسم؛ قف بالكامل داخل إطار الكاميرا.",
-      "Left arm not visible — keep shoulder, elbow, wrist in frame.": "الذراع اليسرى غير واضحة؛ اجعل الكتف والكوع والمعصم داخل الإطار.",
-      "Keep LEFT shoulder–elbow–wrist visible; step back a little.": "أبقِ الكتف والكوع والمعصم في الذراع اليسرى واضحين؛ وتراجع خطوة صغيرة للخلف.",
-      "Keep LEFT shoulder–elbow–wrist visible; step back.": "أبقِ الكتف والكوع والمعصم في الذراع اليسرى واضحين؛ وتراجع للخلف.",
-      "Raise higher to shoulder level.": "ارفع ذراعك حتى مستوى الكتف.",
-      "Straighten your elbow more; less bending.": "قم بتمديد الكوع أكثر؛ وقلّل الانثناء.",
-      "Move your wrist into the target box (out to the side at shoulder height).": "حرّك المعصم إلى داخل مربع الهدف (إلى الجانب وعلى مستوى الكتف).",
-      "Keep LEFT arm visible; step back so elbow & wrist stay in frame.": "أبقِ الذراع اليسرى واضحة؛ وتراجع للخلف ليظل الكوع والمعصم داخل الإطار.",
-      "Curl higher; bring wrist closer to shoulder.": "قم بالثني إلى أعلى أكثر؛ وقرّب المعصم من الكتف.",
-      "Bring your wrist closer to the target box.": "قرّب معصمك من مربع الهدف.",
-      "Keep the arm forward; reduce sideways drift.": "اجعل الذراع إلى الأمام؛ وقلّل الانحراف إلى الجانب.",
-      "Move your wrist into the target box (forward at shoulder height).": "حرّك المعصم إلى داخل مربع الهدف (إلى الأمام وعلى مستوى الكتف).",
-      "Good rep.": "عدة جيدة.",
-      "Did not reach the top position.": "لم تصل إلى الوضع العلوي.",
+  // Exercises
+  const EXERCISES = [
+    { id: "lateral", name: "Left Lateral Raise", hint: "Raise LEFT arm to the side up to shoulder height." },
+    { id: "curl",    name: "Left Bicep Curl",   hint: "Curl LEFT wrist toward shoulder; keep elbow close." },
+    { id: "front",   name: "Left Front Raise",  hint: "Raise LEFT arm forward up to shoulder height." }
+  ];
 
-      // success phrases
-      "Good job!": "أحسنت!",
-      "Great job!": "عملٌ رائع!",
-      "Nice rep!": "عدة ممتازة!",
-      "Perfect!": "ممتاز!"
-    };
+  // Language
+  let TTS_LANG = "en";
+  const AR = {
+    "Avatar locked. Now choose exercise and reps, then press Start.": "تم تثبيت الأفاتار. اختر التمرين وعدد العدّات ثم اضغط بدء.",
+    "Starting. Please stand fully in frame.": "بدء التشغيل. رجاءً قف بالكامل داخل إطار الكاميرا.",
+    "Stand fully in frame to start.": "قف بالكامل داخل إطار الكاميرا للبدء.",
+    "Please step back so your full body is in frame.": "رجاءً تراجع قليلًا حتى يظهر جسمك كاملًا داخل الإطار.",
+    "Make sure your head and feet are visible.": "تأكد من ظهور الرأس والقدمين داخل الإطار.",
+    "Great — your body is in frame. Let's start!": "رائع — جسمك داخل الإطار. لنبدأ!",
+    "Set complete! Great work.": "تمّت المجموعة! عملٌ رائع.",
+    "Good job!": "أحسنت!",
+    "Great job!": "عملٌ رائع!",
+    "Nice rep!": "عدة ممتازة!",
+    "Perfect!": "ممتاز!"
+  };
+  const L = (s) => (TTS_LANG === "ar" ? (AR[s] || s) : s);
 
-    function L(msgEn) {
-      if (TTS_LANG !== "ar") return msgEn;
-      return COACHING_AR_MSA[msgEn] || msgEn;
+  const SUCCESS_EN = ["Good job!", "Great job!", "Nice rep!", "Perfect!"];
+  const SUCCESS_AR = ["أحسنت!", "عملٌ رائع!", "عدة ممتازة!", "ممتاز!"];
+  let lastSuccess = "";
+  function pickSuccessPhrase() {
+    const arr = (TTS_LANG === "ar") ? SUCCESS_AR : SUCCESS_EN;
+    let c = arr[Math.floor(Math.random()*arr.length)];
+    if (arr.length > 1 && c === lastSuccess) {
+      const others = arr.filter(x => x !== lastSuccess);
+      c = others[Math.floor(Math.random()*others.length)];
     }
+    lastSuccess = c;
+    return c;
+  }
 
-    // Rotating success phrases
-    const SUCCESS_EN = ["Good job!", "Great job!", "Nice rep!", "Perfect!"];
-    const SUCCESS_AR = ["أحسنت!", "عملٌ رائع!", "عدة ممتازة!", "ممتاز!"];
-    let lastSuccess = "";
+  // TTS queue
+  let TTS_ENABLED = true;
+  let currentAudio = null;
+  const ttsQueue = [];
+  let ttsBusy = false;
 
-    function pickSuccessPhrase() {
-      const arr = (TTS_LANG === "ar") ? SUCCESS_AR : SUCCESS_EN;
-      if (arr.length === 0) return (TTS_LANG === "ar") ? "أحسنت!" : "Good job!";
-      if (arr.length === 1) return arr[0];
-
-      let cand = arr[Math.floor(Math.random() * arr.length)];
-      if (cand === lastSuccess) {
-        // pick a different one
-        const others = arr.filter(x => x !== lastSuccess);
-        cand = others[Math.floor(Math.random() * others.length)];
-      }
-      lastSuccess = cand;
-      return cand;
+  function stopAllTTS() {
+    ttsQueue.length = 0;
+    if (currentAudio) {
+      try { currentAudio.pause(); currentAudio.currentTime = 0; } catch {}
+      currentAudio = null;
     }
+  }
 
-    // =========================
-    // TTS queue (no overlap)
-    // =========================
-    let TTS_ENABLED = true;
-    let currentAudio = null;
-
-    // prevent spamming coaching while user is in frame
-    const COACHING_COOLDOWN_MS = 2200;
-    let lastCoachingAt = 0;
-    let lastCoachingMsg = "";
-
-    // queue
-    const ttsQueue = [];
-    let ttsBusy = false;
-
-    async function fetchAudioBlob(text) {
-      const res = await fetch(TTS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return await res.blob();
-    }
-
-    function playBlob(blob) {
-      return new Promise((resolve) => {
-        const url = URL.createObjectURL(blob);
-        const a = new Audio(url);
-        currentAudio = a;
-
-        const done = () => {
-          try { URL.revokeObjectURL(url); } catch {}
-          if (currentAudio === a) currentAudio = null;
-          resolve();
-        };
-
-        a.onended = done;
-        a.onerror = done;
-
-        a.play().catch(done);
-      });
-    }
-
-    async function processTTSQueue() {
-      if (ttsBusy) return;
-      ttsBusy = true;
-
-      while (ttsQueue.length > 0) {
-        if (!TTS_ENABLED) {
-          ttsQueue.length = 0;
-          break;
-        }
-
-        const text = ttsQueue.shift();
-        if (!text) continue;
-
-        try {
-          const blob = await fetchAudioBlob(text);
-          if (!TTS_ENABLED) break;
-          await playBlob(blob);
-        } catch (e) {
-          console.warn("TTS error:", e);
-        }
-      }
-
-      ttsBusy = false;
-    }
-
-    function enqueueTTS(text) {
-      if (!TTS_ENABLED) return;
-      const t = (text || "").trim();
-      if (!t) return;
-      ttsQueue.push(t);
-      processTTSQueue();
-    }
-
-    // =========================
-    // UI
-    // =========================
-    const statusEl = document.getElementById("status");
-    const poseStatusEl = document.getElementById("poseStatus");
-    const glbPathEl = document.getElementById("glbPath");
-    const avatarSelectEl = document.getElementById("avatarSelect");
-    const mirrorValEl = document.getElementById("mirrorVal");
-    const repsEl = document.getElementById("reps");
-    const repStateEl = document.getElementById("repState");
-    const exerciseNameEl = document.getElementById("exerciseName");
-    const exerciseSelectEl = document.getElementById("exerciseSelect");
-    const feedbackTextEl = document.getElementById("feedbackText");
-    const dotEl = document.getElementById("dot");
-    const barEl = document.getElementById("bar");
-    const mAngleEl = document.getElementById("mAngle");
-    const mHeightEl = document.getElementById("mHeight");
-    const mDxEl = document.getElementById("mDx");
-    const mVisEl = document.getElementById("mVis");
-    const verdictBadgeEl = document.getElementById("verdictBadge");
-    const verdictTextEl = document.getElementById("verdictText");
-
-    const toggleTTSBtn = document.getElementById("toggleTTSBtn");
-    toggleTTSBtn.addEventListener("click", () => {
-      TTS_ENABLED = !TTS_ENABLED;
-      toggleTTSBtn.textContent = `TTS: ${TTS_ENABLED ? "ON" : "OFF"}`;
-
-      if (!TTS_ENABLED) {
-        ttsQueue.length = 0;
-        if (currentAudio) {
-          try { currentAudio.pause(); currentAudio.currentTime = 0; } catch {}
-          currentAudio = null;
-        }
-      }
+  async function fetchAudioBlob(text) {
+    const res = await fetch(TTS_URL, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ text })
     });
+    if (!res.ok) throw new Error(await res.text());
+    return await res.blob();
+  }
 
-    const setStatus = (txt, ok) => { statusEl.textContent = txt; statusEl.className = ok ? "ok" : "bad"; };
-    const setPosePill = (txt, ok) => { poseStatusEl.textContent = txt; poseStatusEl.style.color = ok ? "#00ff88" : "#ff5577"; };
-
-    function setFeedback(msg, ok) {
-      feedbackTextEl.textContent = msg;
-      dotEl.style.background = ok ? "#00ff88" : "#ff5577";
-      dotEl.style.boxShadow = ok ? "0 0 0 3px rgba(0,255,136,.20)" : "0 0 0 3px rgba(255,85,119,.20)";
-    }
-
-    let verdictHideAt = 0;
-    function showVerdict(ok, text) {
-      const now = performance.now();
-      verdictHideAt = now + 1100;
-      verdictBadgeEl.textContent = ok ? "✅ COUNTED" : "❌ NOT COUNTED";
-      verdictBadgeEl.style.color = ok ? "#00ff88" : "#ff5577";
-      verdictTextEl.textContent = text;
-    }
-    function tickVerdict() {
-      const now = performance.now();
-      if (now > verdictHideAt) {
-        verdictBadgeEl.textContent = "—";
-        verdictBadgeEl.style.color = "#e8eef6";
-        verdictTextEl.textContent = "Waiting for a rep…";
-      }
-    }
-
-    // Progress bar
-    const SEGMENTS = 10;
-    const segs = [];
-    for (let i=0;i<SEGMENTS;i++){
-      const d = document.createElement("div");
-      d.className = "seg";
-      barEl.appendChild(d);
-      segs.push(d);
-    }
-    function setBar(p01){
-      const filled = Math.round(THREE.MathUtils.clamp(p01,0,1) * SEGMENTS);
-      for (let i=0;i<SEGMENTS;i++) segs[i].classList.toggle("on", i < filled);
-    }
-
-    // Smoothing
-    const smoothEl = document.getElementById("smooth");
-    const smoothValEl = document.getElementById("smoothVal");
-    let smooth = parseFloat(smoothEl.value);
-    smoothValEl.textContent = smooth.toFixed(2);
-    smoothEl.addEventListener("input", () => {
-      smooth = parseFloat(smoothEl.value);
-      smoothValEl.textContent = smooth.toFixed(2);
+  function playBlob(blob) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(blob);
+      const a = new Audio(url);
+      currentAudio = a;
+      const done = () => {
+        try { URL.revokeObjectURL(url); } catch {}
+        if (currentAudio === a) currentAudio = null;
+        resolve();
+      };
+      a.onended = done;
+      a.onerror = done;
+      a.play().catch(done);
     });
+  }
 
-    // Overlay
-    const videoEl = document.getElementById("video");
-    const overlay = document.getElementById("overlay");
-    const ctx = overlay.getContext("2d");
-    function resizeOverlay() { overlay.width = overlay.clientWidth; overlay.height = overlay.clientHeight; }
-    window.addEventListener("resize", resizeOverlay);
-    resizeOverlay();
-
-    function toPx(lm) { return { x: lm.x * overlay.width, y: lm.y * overlay.height }; }
-    function drawLinePx(a, b, color, width=6, alpha=1) {
-      ctx.save(); ctx.globalAlpha = alpha;
-      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      ctx.restore();
+  async function processTTSQueue() {
+    if (ttsBusy) return;
+    ttsBusy = true;
+    while (ttsQueue.length > 0) {
+      if (!TTS_ENABLED) { ttsQueue.length = 0; break; }
+      const text = ttsQueue.shift();
+      if (!text) continue;
+      try {
+        const blob = await fetchAudioBlob(text);
+        if (!TTS_ENABLED) break;
+        await playBlob(blob);
+      } catch (e) { console.warn("TTS error:", e); }
     }
-    function drawPointPx(p, color, r=6, alpha=1) {
-      ctx.save(); ctx.globalAlpha = alpha;
-      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2); ctx.fill();
-      ctx.restore();
-    }
-    function drawRectPx(x, y, w, h, color, width=3, alpha=1) {
-      ctx.save(); ctx.globalAlpha = alpha;
-      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.strokeRect(x, y, w, h);
-      ctx.restore();
-    }
-    function drawTextPx(text, x, y, color="#ffffff", alpha=1) {
-      ctx.save(); ctx.globalAlpha = alpha;
-      ctx.fillStyle = color; ctx.font = "bold 12px system-ui, sans-serif";
-      ctx.fillText(text, x, y);
-      ctx.restore();
-    }
+    ttsBusy = false;
+  }
 
-    function setMetrics(angleDegVal, heightDelta, dx, vis) {
-      mAngleEl.textContent = Number.isFinite(angleDegVal) ? `${Math.round(angleDegVal)}°` : "—";
-      mHeightEl.textContent = Number.isFinite(heightDelta) ? `${heightDelta >= 0 ? "+" : ""}${heightDelta.toFixed(3)}` : "—";
-      mDxEl.textContent = Number.isFinite(dx) ? dx.toFixed(3) : "—";
-      mVisEl.textContent = Number.isFinite(vis) ? vis.toFixed(2) : "—";
-    }
+  function enqueueTTS(text) {
+    if (!TTS_ENABLED) return;
+    const t = (text || "").trim();
+    if (!t) return;
+    ttsQueue.push(t);
+    processTTSQueue();
+  }
 
-    // =========================
-    // Three.js scene + Avatar
-    // =========================
-    const threeCanvas = document.getElementById("threeCanvas");
-    const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight, false);
+  // Landing refs
+  const landingEl = document.getElementById("landing");
+  const appEl = document.getElementById("app");
+  const avatarNamePill = document.getElementById("avatarNamePill");
+  const prevAvatarBtn = document.getElementById("prevAvatar");
+  const nextAvatarBtn = document.getElementById("nextAvatar");
+  const lockBtn = document.getElementById("lockBtn");
+  const lockStateEl = document.getElementById("lockState");
+  const setupExerciseEl = document.getElementById("setupExercise");
+  const setupRepsEl = document.getElementById("setupReps");
+  const setupLangEl = document.getElementById("setupLang");
+  const setupStartEl = document.getElementById("setupStart");
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x141c28);
+  EXERCISES.forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.id;
+    opt.textContent = e.name;
+    setupExerciseEl.appendChild(opt);
+  });
 
-    const cam3 = new THREE.PerspectiveCamera(50, threeCanvas.clientWidth / threeCanvas.clientHeight, 0.01, 100);
-    cam3.position.set(0, 1.4, 2.6);
+  // App refs
+  const statusEl = document.getElementById("status");
+  const poseStatusEl = document.getElementById("poseStatus");
+  const rigStatusEl = document.getElementById("rigStatus");
+  const glbPathEl = document.getElementById("glbPath");
+  const avatarSelectEl = document.getElementById("avatarSelect");
+  const mirrorValEl = document.getElementById("mirrorVal");
+  const repsEl = document.getElementById("reps");
+  const targetPillEl = document.getElementById("targetPill");
+  const repStateEl = document.getElementById("repState");
+  const exerciseNameEl = document.getElementById("exerciseName");
+  const exerciseSelectEl = document.getElementById("exerciseSelect");
+  const feedbackTextEl = document.getElementById("feedbackText");
+  const dotEl = document.getElementById("dot");
+  const barEl = document.getElementById("bar");
+  const mAngleEl = document.getElementById("mAngle");
+  const mHeightEl = document.getElementById("mHeight");
+  const mDxEl = document.getElementById("mDx");
+  const mVisEl = document.getElementById("mVis");
+  const ttsLangEl = document.getElementById("ttsLang");
+  const toggleTTSBtn = document.getElementById("toggleTTSBtn");
 
-    window.addEventListener("resize", () => {
-      renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight, false);
-      cam3.aspect = threeCanvas.clientWidth / threeCanvas.clientHeight;
-      cam3.updateProjectionMatrix();
+  toggleTTSBtn.addEventListener("click", () => {
+    TTS_ENABLED = !TTS_ENABLED;
+    toggleTTSBtn.textContent = `TTS: ${TTS_ENABLED ? "ON" : "OFF"}`;
+    if (!TTS_ENABLED) stopAllTTS();
+  });
+
+  ttsLangEl.addEventListener("change", () => { TTS_LANG = ttsLangEl.value; stopAllTTS(); });
+  setupLangEl.addEventListener("change", () => { TTS_LANG = setupLangEl.value; });
+
+  const setStatus = (txt, ok) => { statusEl.textContent = txt; statusEl.className = ok ? "ok" : "bad"; };
+  const setPosePill = (txt, ok) => { poseStatusEl.textContent = txt; poseStatusEl.style.color = ok ? "#00ff88" : "#ff5577"; };
+  function setRigPill(ok, text) {
+    rigStatusEl.textContent = text;
+    rigStatusEl.style.color = ok ? "#00ff88" : "#ff5577";
+  }
+  function setFeedback(msg, ok) {
+    feedbackTextEl.textContent = msg;
+    dotEl.style.background = ok ? "#00ff88" : "#ff5577";
+    dotEl.style.boxShadow = ok ? "0 0 0 3px rgba(0,255,136,.20)" : "0 0 0 3px rgba(255,85,119,.20)";
+  }
+
+  // Progress bar segments
+  const SEGMENTS = 10;
+  const segs = [];
+  for (let i=0;i<SEGMENTS;i++){
+    const d = document.createElement("div");
+    d.className = "seg";
+    barEl.appendChild(d);
+    segs.push(d);
+  }
+  function setBar(p01){
+    const filled = Math.round(THREE.MathUtils.clamp(p01,0,1) * SEGMENTS);
+    for (let i=0;i<SEGMENTS;i++) segs[i].classList.toggle("on", i < filled);
+  }
+
+  // Smoothing
+  const smoothEl = document.getElementById("smooth");
+  const smoothValEl = document.getElementById("smoothVal");
+  let smooth = parseFloat(smoothEl.value);
+  smoothValEl.textContent = smooth.toFixed(2);
+  smoothEl.addEventListener("input", () => { smooth = parseFloat(smoothEl.value); smoothValEl.textContent = smooth.toFixed(2); });
+
+  // Overlay
+  const videoEl = document.getElementById("video");
+  const overlay = document.getElementById("overlay");
+  const ctx = overlay.getContext("2d");
+  function resizeOverlay(){ overlay.width = overlay.clientWidth; overlay.height = overlay.clientHeight; }
+  window.addEventListener("resize", resizeOverlay);
+
+  function setMetrics(angleDegVal, heightDelta, dx, vis) {
+    mAngleEl.textContent = Number.isFinite(angleDegVal) ? `${Math.round(angleDegVal)}°` : "—";
+    mHeightEl.textContent = Number.isFinite(heightDelta) ? `${heightDelta >= 0 ? "+" : ""}${heightDelta.toFixed(3)}` : "—";
+    mDxEl.textContent = Number.isFinite(dx) ? dx.toFixed(3) : "—";
+    mVisEl.textContent = Number.isFinite(vis) ? vis.toFixed(2) : "—";
+  }
+
+  // Three main scene
+  const threeCanvas = document.getElementById("threeCanvas");
+  const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, antialias:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x141c28);
+  const cam3 = new THREE.PerspectiveCamera(50, 1, 0.01, 100);
+  cam3.position.set(0, 1.4, 2.6);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
+  const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(2,4,2); scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.8); fill.position.set(-2,2,1); scene.add(fill);
+
+  function resizeMain3D(){
+    const r = threeCanvas.getBoundingClientRect();
+    renderer.setSize(r.width, r.height, false);
+    cam3.aspect = r.width / r.height;
+    cam3.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", () => { resizeMain3D(); resizeOverlay(); });
+
+  // Preview scene
+  const previewCanvas = document.getElementById("avatarPreview");
+  const previewRenderer = new THREE.WebGLRenderer({ canvas: previewCanvas, antialias:true });
+  previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const previewScene = new THREE.Scene();
+  previewScene.background = new THREE.Color(0x0f1722);
+  const previewCam = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+  previewCam.position.set(0, 1.4, 2.8);
+  previewScene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.4));
+  const pKey = new THREE.DirectionalLight(0xffffff, 1.4); pKey.position.set(2,4,2); previewScene.add(pKey);
+
+  function resizePreview(){
+    const r = previewCanvas.getBoundingClientRect();
+    previewRenderer.setSize(r.width, r.height, false);
+    previewCam.aspect = r.width / r.height;
+    previewCam.updateProjectionMatrix();
+  }
+
+  // Loader
+  const gltfLoader = new GLTFLoader();
+  gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+
+  // Dynamic avatars
+  let AVATARS = [];
+  let previewIndex = 0;
+  let lockedAvatarIndex = null;
+  function avatarGlbPath(a){ return `./Avatars/${a.id}/${a.glb}`; }
+
+  function updateStartEnabled(){
+    setupStartEl.disabled = (lockedAvatarIndex === null);
+  }
+
+  // Preview avatar loading
+  let previewAvatar = null;
+  function clearPreviewAvatar(){
+    if (!previewAvatar) return;
+    previewScene.remove(previewAvatar);
+    previewAvatar = null;
+  }
+  function loadPreviewAvatarByIndex(idx){
+    if (!AVATARS.length) return;
+    previewIndex = (idx + AVATARS.length) % AVATARS.length;
+    const a = AVATARS[previewIndex];
+    avatarNamePill.textContent = a.label;
+
+    clearPreviewAvatar();
+    gltfLoader.load(avatarGlbPath(a), (gltf) => {
+      previewAvatar = gltf.scene;
+      previewScene.add(previewAvatar);
+
+      const box = new THREE.Box3().setFromObject(previewAvatar);
+      const size = new THREE.Vector3(); const center = new THREE.Vector3();
+      box.getSize(size); box.getCenter(center);
+      const maxDim = Math.max(size.x,size.y,size.z);
+      previewCam.position.set(center.x, center.y + size.y*0.15, center.z + maxDim*1.8);
+      previewCam.lookAt(center);
+    }, undefined, (err) => {
+      console.error("Preview load failed:", err);
+      avatarNamePill.textContent = `${a.label} (failed)`;
     });
+  }
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
-    const key = new THREE.DirectionalLight(0xffffff, 1.6);
-    key.position.set(2, 4, 2);
-    scene.add(key);
-    const fill = new THREE.DirectionalLight(0xffffff, 0.8);
-    fill.position.set(-2, 2, 1);
-    scene.add(fill);
+  prevAvatarBtn.addEventListener("click", () => loadPreviewAvatarByIndex(previewIndex - 1));
+  nextAvatarBtn.addEventListener("click", () => loadPreviewAvatarByIndex(previewIndex + 1));
 
-    const AVATARS = [
-      { id: "Avatar1", label: "Avatar 1", glb: "avatar_glb.glb" },
-      { id: "Avatar2", label: "Avatar 2", glb: "AIAN_F_1_Casual.glb" },
-      { id: "Avatar3", label: "Avatar 3", glb: "MENA_F_1_Casual.glb" }
-    ];
+  lockBtn.addEventListener("click", () => {
+    if (!AVATARS.length) return;
+    lockedAvatarIndex = previewIndex;
+    const a = AVATARS[lockedAvatarIndex];
+    lockStateEl.textContent = `Locked: ${a.label}`;
+    updateStartEnabled();
 
-    const loader = new GLTFLoader();
-    loader.setMeshoptDecoder(MeshoptDecoder);
+    stopAllTTS();
+    enqueueTTS(L("Avatar locked. Now choose exercise and reps, then press Start."));
+  });
 
-    let avatar = null;
-    let bonesByName = {};
-    const rig = { LeftArm:null, LeftForeArm:null, RightArm:null, RightForeArm:null };
-    const rest = { baseQ:{}, restDir:{} };
-    const prevTargetQ = {
-      LeftArm: new THREE.Quaternion(),
-      LeftForeArm: new THREE.Quaternion(),
-      RightArm: new THREE.Quaternion(),
-      RightForeArm: new THREE.Quaternion()
-    };
-    let prevInit = false;
-
-    function getRestDirToChild(bone) {
-      const child = bone.children.find(c => c.isBone) || null;
-      if (!child) return new THREE.Vector3(0, -1, 0);
-      const v = new THREE.Vector3(child.position.x, child.position.y, child.position.z);
-      if (v.length() < 1e-6) return new THREE.Vector3(0, -1, 0);
-      return v.normalize();
-    }
-    function clearCurrentAvatar() {
-      if (!avatar) return;
-      scene.remove(avatar);
-      avatar = null;
-      bonesByName = {};
-      rig.LeftArm = rig.LeftForeArm = rig.RightArm = rig.RightForeArm = null;
-      rest.baseQ = {}; rest.restDir = {};
-      prevInit = false;
-    }
-    function loadAvatarByIndex(idx) {
-      const a = AVATARS[idx];
-      const glb = `./Avatars/${a.id}/${a.glb}`;
-      glbPathEl.textContent = glb;
-      setStatus(`loading ${a.label}…`, false);
-      clearCurrentAvatar();
-
-      loader.load(glb, (gltf) => {
-        avatar = gltf.scene;
-        scene.add(avatar);
-
-        bonesByName = {};
-        avatar.traverse((o) => { if (o.isBone) bonesByName[o.name] = o; });
-
-        rig.LeftArm = bonesByName["LeftArm"] || null;
-        rig.LeftForeArm = bonesByName["LeftForeArm"] || null;
-        rig.RightArm = bonesByName["RightArm"] || null;
-        rig.RightForeArm = bonesByName["RightForeArm"] || null;
-
-        for (const k of Object.keys(rig)) {
-          const b = rig[k];
-          if (!b) continue;
-          rest.baseQ[k] = b.quaternion.clone();
-          rest.restDir[k] = getRestDirToChild(b).clone();
-        }
-
-        for (const k of Object.keys(prevTargetQ)) prevTargetQ[k].copy(rest.baseQ[k] || new THREE.Quaternion());
-        prevInit = true;
-
-        const box = new THREE.Box3().setFromObject(avatar);
-        const size = new THREE.Vector3();
-        const center = new THREE.Vector3();
-        box.getSize(size);
-        box.getCenter(center);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        cam3.position.set(center.x, center.y + size.y * 0.15, center.z + maxDim * 1.8);
-        cam3.lookAt(center);
-
-        setStatus(`${a.label} loaded ✅`, true);
-      }, undefined, (err) => {
-        console.error("Avatar load failed:", err);
-        setStatus(`FAILED to load ${a.label} (see console)`, false);
-      });
-    }
-
-    AVATARS.forEach((a, i) => {
+  function populateAppSelects(){
+    avatarSelectEl.innerHTML = "";
+    AVATARS.forEach((a,i) => {
       const opt = document.createElement("option");
       opt.value = String(i);
       opt.textContent = a.label;
       avatarSelectEl.appendChild(opt);
     });
-    avatarSelectEl.value = "0";
-    avatarSelectEl.addEventListener("change", () => loadAvatarByIndex(parseInt(avatarSelectEl.value, 10)));
 
-    // =========================
-    // MediaPipe Pose
-    // =========================
-    let latest = null;
-    let useFrontCamera = true;
-    let mirrorPose = true;
-    mirrorValEl.textContent = mirrorPose ? "ON" : "OFF";
-
-    document.getElementById("toggleMirrorBtn").addEventListener("click", () => {
-      mirrorPose = !mirrorPose;
-      mirrorValEl.textContent = mirrorPose ? "ON" : "OFF";
-    });
-
-    document.getElementById("flipBtn").addEventListener("click", async () => {
-      useFrontCamera = !useFrontCamera;
-      mirrorPose = useFrontCamera ? true : false;
-      mirrorValEl.textContent = mirrorPose ? "ON" : "OFF";
-      await startCamera();
-    });
-
-    function mirrored(lm) { return { x: 1.0 - lm.x, y: lm.y, z: lm.z, visibility: lm.visibility }; }
-
-    function getActiveArmLM(poseLm) {
-      if (!poseLm) return null;
-      let S, E, W;
-
-      if (ACTIVE_ARM === "left") {
-        S = mirrorPose ? poseLm[12] : poseLm[11];
-        E = mirrorPose ? poseLm[14] : poseLm[13];
-        W = mirrorPose ? poseLm[16] : poseLm[15];
-      } else {
-        S = mirrorPose ? poseLm[11] : poseLm[12];
-        E = mirrorPose ? poseLm[13] : poseLm[14];
-        W = mirrorPose ? poseLm[15] : poseLm[16];
-      }
-
-      if (!S || !E || !W) return null;
-      const v = Math.min(S.visibility ?? 1, E.visibility ?? 1, W.visibility ?? 1);
-      return { S, E, W, v };
-    }
-
-    function angleDeg(a, b, c) {
-      const abx = a.x - b.x, aby = a.y - b.y;
-      const cbx = c.x - b.x, cby = c.y - b.y;
-      const dot = abx*cbx + aby*cby;
-      const lab = Math.hypot(abx, aby);
-      const lcb = Math.hypot(cbx, cby);
-      if (lab < 1e-6 || lcb < 1e-6) return 0;
-      const cos = THREE.MathUtils.clamp(dot/(lab*lcb), -1, 1);
-      return THREE.MathUtils.radToDeg(Math.acos(cos));
-    }
-
-    // Coaching overlay computed per frame
-    let activeArmQuality = null;
-
-    function drawCoachingOverlay(poseLm) {
-      if (!poseLm) return;
-      const arm = getActiveArmLM(poseLm);
-      if (!arm || !activeArmQuality) return;
-
-      const { S, E, W, v } = arm;
-      const pS = toPx(S), pE = toPx(E), pW = toPx(W);
-
-      if (activeArmQuality.targetRectPx) {
-        const r = activeArmQuality.targetRectPx;
-        drawRectPx(r.x, r.y, r.w, r.h, activeArmQuality.wristInTarget ? "#00ff88" : "#ff5577", 3, 0.95);
-        drawTextPx("Target", r.x + 6, r.y - 6, activeArmQuality.wristInTarget ? "#00ff88" : "#ff5577", 0.95);
-      }
-
-      const c1 = activeArmQuality.seg1Good ? "#00ff88" : "#ff5577";
-      const c2 = activeArmQuality.seg2Good ? "#00ff88" : "#ff5577";
-
-      drawLinePx(pS, pE, c1, 8, 0.95);
-      drawLinePx(pE, pW, c2, 8, 0.95);
-      drawPointPx(pS, c1, 6, 0.95);
-      drawPointPx(pE, (activeArmQuality.seg1Good && activeArmQuality.seg2Good) ? "#00ff88" : "#ffcc00", 6, 0.95);
-      drawPointPx(pW, activeArmQuality.wristInTarget ? "#00ff88" : "#ff5577", 6, 0.95);
-
-      drawTextPx(`${Math.round(activeArmQuality.elbowAngle)}°`, pW.x + 8, pW.y - 8, activeArmQuality.ok ? "#00ff88" : "#ff5577", 0.95);
-      if (v < 0.65) drawTextPx("LOW VISIBILITY", pS.x + 10, pS.y + 20, "#ffcc00", 0.95);
-    }
-
-    function drawResults(results) {
-      resizeOverlay();
-      ctx.save();
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
-      ctx.drawImage(results.image, 0, 0, overlay.width, overlay.height);
-
-      if (results.poseLandmarks) {
-        setPosePill("DETECTED ✅", true);
-        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: "#6b7280", lineWidth: 2 });
-        drawLandmarks(ctx, results.poseLandmarks, { color: "#ffffff", lineWidth: 1, radius: 2 });
-        latest = results.poseLandmarks;
-        drawCoachingOverlay(results.poseLandmarks);
-      } else {
-        setPosePill("NOT DETECTED", false);
-        latest = null;
-      }
-      ctx.restore();
-    }
-
-    const pose = new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}` });
-    pose.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
-    pose.onResults(drawResults);
-
-    async function startCamera() {
-      setStatus("starting webcam…", false);
-      if (videoEl.srcObject) videoEl.srcObject.getTracks().forEach(t => t.stop());
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: useFrontCamera ? "user" : "environment", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false
-      });
-      videoEl.srcObject = stream;
-      await videoEl.play();
-      const cameraFeed = new Camera(videoEl, {
-        onFrame: async () => { await pose.send({ image: videoEl }); },
-        width: 640, height: 480
-      });
-      cameraFeed.start();
-      setStatus("webcam running ✅", true);
-    }
-
-    // =========================
-    // Avatar driving (rig)
-    // =========================
-    function vecFrom(lmA, lmB) {
-      const ax = lmA.x, ay = 1.0 - lmA.y;
-      const bx = lmB.x, by = 1.0 - lmB.y;
-      return new THREE.Vector3(bx - ax, by - ay, 0);
-    }
-
-    const tmpQ = new THREE.Quaternion();
-    const invParentQ = new THREE.Quaternion();
-    const dirLocal = new THREE.Vector3();
-    const restDirN = new THREE.Vector3();
-    const REST_DEADZONE = Math.cos(THREE.MathUtils.degToRad(8));
-
-    function applyBoneDirStable(boneName, targetDirWorld, alpha) {
-      const b = rig[boneName];
-      const baseQ = rest.baseQ[boneName];
-      const restDir = rest.restDir[boneName];
-      if (!b || !baseQ || !restDir || !prevInit) return;
-
-      b.parent.getWorldQuaternion(invParentQ);
-      invParentQ.invert();
-      dirLocal.copy(targetDirWorld).applyQuaternion(invParentQ).normalize();
-
-      restDirN.copy(restDir).normalize();
-      const dotToRest = THREE.MathUtils.clamp(restDirN.dot(dirLocal), -1, 1);
-
-      if (dotToRest > REST_DEADZONE) {
-        b.quaternion.slerp(baseQ, alpha);
-        prevTargetQ[boneName].copy(baseQ);
-        return;
-      }
-
-      tmpQ.setFromUnitVectors(restDirN, dirLocal);
-      const targetQ = baseQ.clone().multiply(tmpQ);
-
-      if (prevTargetQ[boneName].dot(targetQ) < 0) {
-        targetQ.x *= -1; targetQ.y *= -1; targetQ.z *= -1; targetQ.w *= -1;
-      }
-
-      b.quaternion.slerp(targetQ, alpha);
-      prevTargetQ[boneName].copy(targetQ);
-    }
-
-    function driveArmsFromPose(poseLm) {
-      if (!avatar || !poseLm) return;
-
-      let LS = poseLm[11], LE = poseLm[13], LW = poseLm[15];
-      let RS = poseLm[12], RE = poseLm[14], RW = poseLm[16];
-      if (!LS || !LE || !LW || !RS || !RE || !RW) return;
-
-      if (mirrorPose) {
-        const mLS = mirrored(RS), mLE = mirrored(RE), mLW = mirrored(RW);
-        const mRS = mirrored(LS), mRE = mirrored(LE), mRW = mirrored(LW);
-        LS = mLS; LE = mLE; LW = mLW;
-        RS = mRS; RE = mRE; RW = mRW;
-      }
-
-      const vMin = 0.55;
-      const okL = (LS.visibility ?? 1) > vMin && (LE.visibility ?? 1) > vMin && (LW.visibility ?? 1) > vMin;
-      const okR = (RS.visibility ?? 1) > vMin && (RE.visibility ?? 1) > vMin && (RW.visibility ?? 1) > vMin;
-
-      if (okL) {
-        applyBoneDirStable("LeftArm", vecFrom(LS, LE), smooth);
-        applyBoneDirStable("LeftForeArm", vecFrom(LE, LW), smooth);
-      }
-      if (okR) {
-        applyBoneDirStable("RightArm", vecFrom(RS, RE), smooth);
-        applyBoneDirStable("RightForeArm", vecFrom(RE, RW), smooth);
-      }
-    }
-
-    // =========================
-    // Exercises + rep counting
-    // =========================
-    const EXERCISES = [
-      { id: "lateral", name: "Left Lateral Raise", hint: "Raise LEFT arm to the side up to shoulder height." },
-      { id: "curl",    name: "Left Bicep Curl",   hint: "Curl LEFT wrist toward shoulder; keep elbow close." },
-      { id: "front",   name: "Left Front Raise",  hint: "Raise LEFT arm forward up to shoulder height." }
-    ];
-
-    EXERCISES.forEach((e) => {
+    exerciseSelectEl.innerHTML = "";
+    EXERCISES.forEach(e => {
       const opt = document.createElement("option");
       opt.value = e.id;
       opt.textContent = e.name;
       exerciseSelectEl.appendChild(opt);
     });
+  }
 
-    let currentExerciseId = "lateral";
-    exerciseSelectEl.value = currentExerciseId;
+  async function fetchAvatars(){
+    const r = await fetch(AVATAR_LIST_URL);
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "avatars ok=false");
+    AVATARS = j.avatars || [];
+    if (!AVATARS.length) throw new Error("no avatars returned");
+    populateAppSelects();
+    loadPreviewAvatarByIndex(0);
+    updateStartEnabled();
+  }
 
-    let reps = 0;
-    let phase = "DOWN";
-    let lastUpReachedTop = false;
-    let lastUpWarnReason = "";
-    let lastUpFailReason = "";
+  // Avatar rigging (robust)
+  let avatar = null;
+  const rig = { LeftArm:null, LeftForeArm:null, RightArm:null, RightForeArm:null };
+  const rest = { baseQ:{}, restDir:{} };
+  const prevTargetQ = {
+    LeftArm: new THREE.Quaternion(),
+    LeftForeArm: new THREE.Quaternion(),
+    RightArm: new THREE.Quaternion(),
+    RightForeArm: new THREE.Quaternion()
+  };
+  let prevInit = false;
 
-    function makeRectAround(px, py, w, h) { return { x: px - w/2, y: py - h/2, w, h }; }
-    function pointInRect(p, r) { return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
+  function getRestDirToChild(bone){
+    const child = bone.children.find(c => c.isBone) || null;
+    if (!child) return new THREE.Vector3(0,-1,0);
+    const v = new THREE.Vector3(child.position.x, child.position.y, child.position.z);
+    if (v.length() < 1e-6) return new THREE.Vector3(0,-1,0);
+    return v.normalize();
+  }
 
-    function chooseMessage(checks) {
-      checks.sort((a,b) => (b.severity - a.severity));
-      const firstBad = checks.find(c => !c.ok);
-      if (firstBad) return { msg: firstBad.msg, ok: false };
-      return { msg: "Good ✅", ok: true };
+  function findBoneFuzzy(allBones, patterns){
+    const pats = patterns.map(p => p.toLowerCase());
+    let best = null, bestScore = -1;
+    for (const b of allBones){
+      const n = (b.name || "").toLowerCase();
+      let score = 0;
+      for (const p of pats){
+        if (n === p) score += 120;
+        else if (n.endsWith(p)) score += 90;
+        else if (n.includes(p)) score += 70;
+      }
+      score += Math.max(0, 18 - n.length) * 0.2;
+      if (score > bestScore){ bestScore = score; best = b; }
     }
+    if (bestScore < 40) return null;
+    return best;
+  }
 
-    function resetReps() {
-      reps = 0;
-      phase = "DOWN";
-      repsEl.textContent = String(reps);
-      repStateEl.textContent = "WAITING";
-      setBar(0);
+  function buildRigFromAvatar(root){
+    const bones = [];
+    root.traverse(o => { if (o.isBone) bones.push(o); });
 
-      const ex = EXERCISES.find(x => x.id === currentExerciseId);
-      exerciseNameEl.textContent = ex ? ex.name : "—";
-      setFeedback(L(ex ? ex.hint : "Stand fully in frame, LEFT arm visible."), false);
-      activeArmQuality = null;
+    rig.LeftArm = findBoneFuzzy(bones, ["LeftArm","LeftUpperArm","UpperArm_L","upperarm_l","l_upperarm","mixamorig:LeftArm"]);
+    rig.LeftForeArm = findBoneFuzzy(bones, ["LeftForeArm","LeftLowerArm","LowerArm_L","lowerarm_l","l_forearm","mixamorig:LeftForeArm"]);
+    rig.RightArm = findBoneFuzzy(bones, ["RightArm","RightUpperArm","UpperArm_R","upperarm_r","r_upperarm","mixamorig:RightArm"]);
+    rig.RightForeArm = findBoneFuzzy(bones, ["RightForeArm","RightLowerArm","LowerArm_R","lowerarm_r","r_forearm","mixamorig:RightForeArm"]);
 
-      lastCoachingMsg = "";
-      lastCoachingAt = 0;
-
-      lastUpReachedTop = false;
-      lastUpWarnReason = "";
-      lastUpFailReason = "";
-
-      showVerdict(true, "Reset.");
-      verdictHideAt = performance.now() + 400;
+    rest.baseQ = {}; rest.restDir = {};
+    for (const k of Object.keys(rig)){
+      const b = rig[k];
+      if (!b) continue;
+      rest.baseQ[k] = b.quaternion.clone();
+      rest.restDir[k] = getRestDirToChild(b).clone();
     }
-
-    document.getElementById("resetRepsBtn").addEventListener("click", resetReps);
-    exerciseSelectEl.addEventListener("change", () => { currentExerciseId = exerciseSelectEl.value; resetReps(); });
-
-    function maybeSpeakCoaching(msgEn) {
-      if (!TTS_ENABLED) return;
-      if (phase !== "DOWN") return;
-
-      const now = performance.now();
-      const spoken = L(msgEn);
-
-      if ((now - lastCoachingAt) < COACHING_COOLDOWN_MS) return;
-      if (spoken === lastCoachingMsg) return;
-
-      lastCoachingAt = now;
-      lastCoachingMsg = spoken;
-
-      enqueueTTS(spoken);
+    for (const k of Object.keys(prevTargetQ)){
+      prevTargetQ[k].copy(rest.baseQ[k] || new THREE.Quaternion());
     }
+    prevInit = true;
 
-    // ✅ Called right after reps++
-    function speakSuccessAfterRep() {
-      enqueueTTS(pickSuccessPhrase());
-    }
-
-    function updateExercise(poseLm) {
-      tickVerdict();
-      activeArmQuality = null;
-
-      if (!poseLm) {
-        repStateEl.textContent = "WAITING";
-        const msg = "No body detected — stand fully in frame.";
-        setFeedback(L(msg), false);
-        setBar(0);
-        setMetrics(NaN, NaN, NaN, NaN);
-        return;
-      }
-
-      const arm = getActiveArmLM(poseLm);
-      if (!arm) {
-        repStateEl.textContent = "WAITING";
-        const msg = "Left arm not visible — keep shoulder, elbow, wrist in frame.";
-        setFeedback(L(msg), false);
-        setBar(0);
-        setMetrics(NaN, NaN, NaN, NaN);
-        return;
-      }
-
-      const { S, E, W, v } = arm;
-      const elbowA = angleDeg(S, E, W);
-      const heightDelta = (S.y - W.y);
-      const dx = Math.abs(W.x - S.x);
-
-      setMetrics(elbowA, heightDelta, dx, v);
-
-      const VIS_OK = v >= 0.60;
-      const elbowTooBent = elbowA < 135;
-
-      const pS = toPx(S);
-      const pW = toPx(W);
-      const boxW = overlay.width * 0.14;
-      const boxH = overlay.height * 0.12;
-
-      function speakIfBad(msgEn, ok) {
-        if (!ok) maybeSpeakCoaching(msgEn);
-      }
-
-      // --- LATERAL ---
-      if (currentExerciseId === "lateral") {
-        const downZoneY = S.y + 0.18;
-        const topZoneY  = S.y - 0.05;
-        const t = THREE.MathUtils.clamp((downZoneY - W.y) / (downZoneY - topZoneY), 0, 1);
-        setBar(t);
-
-        const outwardDir = Math.sign((E.x - S.x) || 1);
-        const targetCx = pS.x + outwardDir * (overlay.width * 0.16);
-        const targetCy = pS.y - (overlay.height * 0.02);
-        const targetRect = makeRectAround(targetCx, targetCy, boxW, boxH);
-        const wristInTarget = pointInRect(pW, targetRect);
-
-        const UP_OK = (t >= 0.78) && VIS_OK;
-        const FORM_OK = UP_OK && !elbowTooBent && wristInTarget;
-
-        const checks = [
-          { ok: VIS_OK, msg: "Keep LEFT shoulder–elbow–wrist visible; step back a little.", severity: 100 },
-          { ok: t >= 0.78, msg: "Raise higher to shoulder level.", severity: 80 },
-          { ok: !elbowTooBent, msg: "Straighten your elbow more; less bending.", severity: 60 },
-          { ok: wristInTarget, msg: "Move your wrist into the target box (out to the side at shoulder height).", severity: 55 },
-        ];
-        const chosen = chooseMessage(checks);
-
-        activeArmQuality = {
-          seg1Good: VIS_OK,
-          seg2Good: VIS_OK && !elbowTooBent,
-          wristInTarget,
-          ok: chosen.ok,
-          targetRectPx: targetRect,
-          elbowAngle: elbowA
-        };
-
-        repStateEl.textContent = phase;
-        setFeedback(L(chosen.msg), chosen.ok);
-        if (phase === "DOWN") speakIfBad(chosen.msg, chosen.ok);
-
-        if (phase === "DOWN") {
-          if (t >= 0.78) {
-            phase = "UP";
-            lastUpReachedTop = UP_OK;
-            lastUpFailReason = UP_OK ? "" : chosen.msg;
-            lastUpWarnReason = (UP_OK && !FORM_OK) ? chosen.msg : "";
-          }
-        } else {
-          if (t <= 0.30) {
-            if (lastUpReachedTop) {
-              reps += 1;
-              repsEl.textContent = String(reps);
-
-              if (lastUpWarnReason) {
-                showVerdict(true, `Counted ✅ (but: ${L(lastUpWarnReason)})`);
-                enqueueTTS(L(lastUpWarnReason));
-              } else {
-                showVerdict(true, L("Good rep."));
-              }
-
-              // ✅ ALWAYS after increment
-              speakSuccessAfterRep();
-
-            } else {
-              const reason = lastUpFailReason || "Did not reach the top position.";
-              showVerdict(false, L(reason));
-              enqueueTTS(L(reason));
-            }
-            phase = "DOWN";
-          }
-        }
-      }
-
-      // --- CURL ---
-      else if (currentExerciseId === "curl") {
-        const t = THREE.MathUtils.clamp((170 - elbowA) / (170 - 60), 0, 1);
-        setBar(t);
-
-        const targetRect = makeRectAround(pS.x, pS.y + overlay.height * 0.04, boxW * 0.85, boxH * 0.85);
-        const wristInTarget = pointInRect(pW, targetRect);
-
-        const UP_OK = (t >= 0.72) && VIS_OK;
-        const FORM_OK = UP_OK && wristInTarget;
-
-        const checks = [
-          { ok: VIS_OK, msg: "Keep LEFT arm visible; step back so elbow & wrist stay in frame.", severity: 100 },
-          { ok: t >= 0.72, msg: "Curl higher; bring wrist closer to shoulder.", severity: 80 },
-          { ok: wristInTarget, msg: "Bring your wrist closer to the target box.", severity: 60 },
-        ];
-        const chosen = chooseMessage(checks);
-
-        activeArmQuality = {
-          seg1Good: VIS_OK,
-          seg2Good: VIS_OK,
-          wristInTarget,
-          ok: chosen.ok,
-          targetRectPx: targetRect,
-          elbowAngle: elbowA
-        };
-
-        repStateEl.textContent = phase;
-        setFeedback(L(chosen.msg), chosen.ok);
-        if (phase === "DOWN") speakIfBad(chosen.msg, chosen.ok);
-
-        if (phase === "DOWN") {
-          if (t >= 0.72) {
-            phase = "UP";
-            lastUpReachedTop = UP_OK;
-            lastUpFailReason = UP_OK ? "" : chosen.msg;
-            lastUpWarnReason = (UP_OK && !FORM_OK) ? chosen.msg : "";
-          }
-        } else {
-          if (t <= 0.25) {
-            if (lastUpReachedTop) {
-              reps += 1;
-              repsEl.textContent = String(reps);
-
-              if (lastUpWarnReason) {
-                showVerdict(true, `Counted ✅ (but: ${L(lastUpWarnReason)})`);
-                enqueueTTS(L(lastUpWarnReason));
-              } else {
-                showVerdict(true, L("Good rep."));
-              }
-
-              // ✅ ALWAYS after increment
-              speakSuccessAfterRep();
-
-            } else {
-              const reason = lastUpFailReason || "Did not reach the top position.";
-              showVerdict(false, L(reason));
-              enqueueTTS(L(reason));
-            }
-            phase = "DOWN";
-          }
-        }
-      }
-
-      // --- FRONT ---
-      else if (currentExerciseId === "front") {
-        const downZoneY = S.y + 0.18;
-        const topZoneY  = S.y - 0.05;
-        const t = THREE.MathUtils.clamp((downZoneY - W.y) / (downZoneY - topZoneY), 0, 1);
-        setBar(t);
-
-        const tooSideways = dx > 0.25;
-
-        const targetRect = makeRectAround(pS.x, pS.y - overlay.height * 0.02, boxW * 0.75, boxH);
-        const wristInTarget = pointInRect(pW, targetRect);
-
-        const UP_OK = (t >= 0.78) && VIS_OK;
-        const FORM_OK = UP_OK && !elbowTooBent && !tooSideways && wristInTarget;
-
-        const checks = [
-          { ok: VIS_OK, msg: "Keep LEFT shoulder–elbow–wrist visible; step back.", severity: 100 },
-          { ok: t >= 0.78, msg: "Raise higher to shoulder level.", severity: 80 },
-          { ok: !elbowTooBent, msg: "Straighten your elbow more; less bending.", severity: 60 },
-          { ok: !tooSideways, msg: "Keep the arm forward; reduce sideways drift.", severity: 55 },
-          { ok: wristInTarget, msg: "Move your wrist into the target box (forward at shoulder height).", severity: 50 },
-        ];
-        const chosen = chooseMessage(checks);
-
-        activeArmQuality = {
-          seg1Good: VIS_OK,
-          seg2Good: VIS_OK && !elbowTooBent,
-          wristInTarget,
-          ok: chosen.ok,
-          targetRectPx: targetRect,
-          elbowAngle: elbowA
-        };
-
-        repStateEl.textContent = phase;
-        setFeedback(L(chosen.msg), chosen.ok);
-        if (phase === "DOWN") speakIfBad(chosen.msg, chosen.ok);
-
-        if (phase === "DOWN") {
-          if (t >= 0.78) {
-            phase = "UP";
-            lastUpReachedTop = UP_OK;
-            lastUpFailReason = UP_OK ? "" : chosen.msg;
-            lastUpWarnReason = (UP_OK && !FORM_OK) ? chosen.msg : "";
-          }
-        } else {
-          if (t <= 0.30) {
-            if (lastUpReachedTop) {
-              reps += 1;
-              repsEl.textContent = String(reps);
-
-              if (lastUpWarnReason) {
-                showVerdict(true, `Counted ✅ (but: ${L(lastUpWarnReason)})`);
-                enqueueTTS(L(lastUpWarnReason));
-              } else {
-                showVerdict(true, L("Good rep."));
-              }
-
-              // ✅ ALWAYS after increment
-              speakSuccessAfterRep();
-
-            } else {
-              const reason = lastUpFailReason || "Did not reach the top position.";
-              showVerdict(false, L(reason));
-              enqueueTTS(L(reason));
-            }
-            phase = "DOWN";
-          }
-        }
-      }
-    }
-
-    // =========================
-    // Boot
-    // =========================
-    ttsLangEl.addEventListener("change", () => {
-      TTS_LANG = ttsLangEl.value;
-      lastCoachingMsg = "";
-      lastCoachingAt = 0;
-      // optional: clear queued items when language changes
-      ttsQueue.length = 0;
-
-      const ex = EXERCISES.find(x => x.id === currentExerciseId);
-      if (ex) setFeedback(L(ex.hint), false);
+    const ok = !!(rig.LeftArm && rig.LeftForeArm && rig.RightArm && rig.RightForeArm);
+    setRigPill(ok, ok ? "OK" : "MISSING BONES");
+    console.log("Rig:", {
+      LeftArm: rig.LeftArm?.name, LeftForeArm: rig.LeftForeArm?.name,
+      RightArm: rig.RightArm?.name, RightForeArm: rig.RightForeArm?.name
     });
+  }
 
-    loadAvatarByIndex(0);
+  function clearCurrentAvatar(){
+    if (!avatar) return;
+    scene.remove(avatar);
+    avatar = null;
+    rig.LeftArm = rig.LeftForeArm = rig.RightArm = rig.RightForeArm = null;
+    rest.baseQ = {}; rest.restDir = {};
+    prevInit = false;
+    setRigPill(false, "—");
+  }
 
-    function loop() {
-      requestAnimationFrame(loop);
-      if (latest) driveArmsFromPose(latest);
-      updateExercise(latest);
-      renderer.render(scene, cam3);
+  function loadAvatarByIndex(idx){
+    if (!AVATARS.length) return;
+    const a = AVATARS[idx];
+    const glb = avatarGlbPath(a);
+    glbPathEl.textContent = glb;
+
+    setStatus(`loading ${a.label}…`, false);
+    clearCurrentAvatar();
+
+    gltfLoader.load(glb, (gltf) => {
+      avatar = gltf.scene;
+      scene.add(avatar);
+
+      buildRigFromAvatar(avatar);
+
+      const box = new THREE.Box3().setFromObject(avatar);
+      const size = new THREE.Vector3(); const center = new THREE.Vector3();
+      box.getSize(size); box.getCenter(center);
+      const maxDim = Math.max(size.x,size.y,size.z);
+      cam3.position.set(center.x, center.y + size.y*0.15, center.z + maxDim*1.8);
+      cam3.lookAt(center);
+
+      setStatus(`${a.label} loaded ✅`, true);
+    }, undefined, (err) => {
+      console.error("Avatar load failed:", err);
+      setStatus(`FAILED to load ${a.label}`, false);
+      setRigPill(false, "LOAD FAIL");
+    });
+  }
+
+  // Pose
+  let latest = null;
+  let useFrontCamera = true;
+  let mirrorPose = true;
+  mirrorValEl.textContent = mirrorPose ? "ON" : "OFF";
+
+  document.getElementById("toggleMirrorBtn").addEventListener("click", () => {
+    mirrorPose = !mirrorPose;
+    mirrorValEl.textContent = mirrorPose ? "ON" : "OFF";
+  });
+
+  document.getElementById("flipBtn").addEventListener("click", async () => {
+    useFrontCamera = !useFrontCamera;
+    mirrorPose = useFrontCamera ? true : false;
+    mirrorValEl.textContent = mirrorPose ? "ON" : "OFF";
+    await startCamera();
+  });
+
+  function mirrored(lm){ return { x: 1.0 - lm.x, y: lm.y, z: lm.z, visibility: lm.visibility }; }
+
+  function angleDeg(a,b,c){
+    const abx = a.x-b.x, aby=a.y-b.y;
+    const cbx = c.x-b.x, cby=c.y-b.y;
+    const dot = abx*cbx + aby*cby;
+    const lab = Math.hypot(abx,aby);
+    const lcb = Math.hypot(cbx,cby);
+    if (lab < 1e-6 || lcb < 1e-6) return 0;
+    const cos = THREE.MathUtils.clamp(dot/(lab*lcb), -1, 1);
+    return THREE.MathUtils.radToDeg(Math.acos(cos));
+  }
+
+  function drawResults(results){
+    resizeOverlay();
+    ctx.save();
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+    ctx.drawImage(results.image, 0,0,overlay.width,overlay.height);
+
+    if (results.poseLandmarks){
+      setPosePill("DETECTED ✅", true);
+      drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color:"#6b7280", lineWidth:2 });
+      drawLandmarks(ctx, results.poseLandmarks, { color:"#ffffff", lineWidth:1, radius:2 });
+      latest = results.poseLandmarks;
+    } else {
+      setPosePill("NOT DETECTED", false);
+      latest = null;
+    }
+    ctx.restore();
+  }
+
+  const pose = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${f}` });
+  pose.setOptions({ modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+  pose.onResults(drawResults);
+
+  let cameraRunning = false;
+  async function startCamera(){
+    if (!cameraRunning) setStatus("starting webcam…", false);
+    if (videoEl.srcObject) videoEl.srcObject.getTracks().forEach(t => t.stop());
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: useFrontCamera ? "user" : "environment", width:{ideal:640}, height:{ideal:480} },
+      audio: false
+    });
+    videoEl.srcObject = stream;
+    await videoEl.play();
+
+    const cam = new Camera(videoEl, {
+      onFrame: async () => { await pose.send({ image: videoEl }); },
+      width:640, height:480
+    });
+    cam.start();
+
+    cameraRunning = true;
+    setStatus("webcam running ✅", true);
+  }
+
+  // Drive avatar arms
+  function vecFrom(lmA, lmB){
+    const ax=lmA.x, ay=1.0-lmA.y;
+    const bx=lmB.x, by=1.0-lmB.y;
+    return new THREE.Vector3(bx-ax, by-ay, 0);
+  }
+
+  const tmpQ = new THREE.Quaternion();
+  const invParentQ = new THREE.Quaternion();
+  const dirLocal = new THREE.Vector3();
+  const restDirN = new THREE.Vector3();
+  const REST_DEADZONE = Math.cos(THREE.MathUtils.degToRad(8));
+
+  function applyBoneDirStable(bone, baseQ, restDir, targetDirWorld, alpha, prevQStore){
+    if (!bone || !baseQ || !restDir || !prevInit) return;
+
+    bone.parent.getWorldQuaternion(invParentQ);
+    invParentQ.invert();
+    dirLocal.copy(targetDirWorld).applyQuaternion(invParentQ).normalize();
+
+    restDirN.copy(restDir).normalize();
+    const dotToRest = THREE.MathUtils.clamp(restDirN.dot(dirLocal), -1, 1);
+
+    if (dotToRest > REST_DEADZONE){
+      bone.quaternion.slerp(baseQ, alpha);
+      prevQStore.copy(baseQ);
+      return;
     }
 
-    (async () => {
-      try {
-        await startCamera();
-        resetReps();
-        loop();
-      } catch (e) {
-        console.error(e);
-        setStatus("webcam failed (check permissions)", false);
+    tmpQ.setFromUnitVectors(restDirN, dirLocal);
+    const targetQ = baseQ.clone().multiply(tmpQ);
+
+    if (prevQStore.dot(targetQ) < 0){
+      targetQ.x*=-1; targetQ.y*=-1; targetQ.z*=-1; targetQ.w*=-1;
+    }
+
+    bone.quaternion.slerp(targetQ, alpha);
+    prevQStore.copy(targetQ);
+  }
+
+  function driveArmsFromPose(poseLm){
+    if (!avatar || !poseLm) return;
+
+    let LS = poseLm[11], LE = poseLm[13], LW = poseLm[15];
+    let RS = poseLm[12], RE = poseLm[14], RW = poseLm[16];
+    if (!LS || !LE || !LW || !RS || !RE || !RW) return;
+
+    if (mirrorPose){
+      const mLS = mirrored(RS), mLE = mirrored(RE), mLW = mirrored(RW);
+      const mRS = mirrored(LS), mRE = mirrored(LE), mRW = mirrored(LW);
+      LS=mLS; LE=mLE; LW=mLW;
+      RS=mRS; RE=mRE; RW=mRW;
+    }
+
+    const vMin = 0.55;
+    const okL = (LS.visibility??1)>vMin && (LE.visibility??1)>vMin && (LW.visibility??1)>vMin;
+    const okR = (RS.visibility??1)>vMin && (RE.visibility??1)>vMin && (RW.visibility??1)>vMin;
+
+    if (okL){
+      applyBoneDirStable(rig.LeftArm, rest.baseQ.LeftArm, rest.restDir.LeftArm, vecFrom(LS,LE), smooth, prevTargetQ.LeftArm);
+      applyBoneDirStable(rig.LeftForeArm, rest.baseQ.LeftForeArm, rest.restDir.LeftForeArm, vecFrom(LE,LW), smooth, prevTargetQ.LeftForeArm);
+    }
+    if (okR){
+      applyBoneDirStable(rig.RightArm, rest.baseQ.RightArm, rest.restDir.RightArm, vecFrom(RS,RE), smooth, prevTargetQ.RightArm);
+      applyBoneDirStable(rig.RightForeArm, rest.baseQ.RightForeArm, rest.restDir.RightForeArm, vecFrom(RE,RW), smooth, prevTargetQ.RightForeArm);
+    }
+  }
+
+  // ===== Workout + rep counting (FULL logic restored) =====
+  let currentExerciseId = "lateral";
+  let targetReps = 12;
+  let reps = 0;
+  let setDone = false;
+  let phase = "DOWN";
+  let lastUpReachedTop = false;
+
+  function updateTargetPill(){ targetPillEl.textContent = `${reps} / ${targetReps}`; }
+
+  function resetSet(){
+    reps = 0;
+    setDone = false;
+    phase = "DOWN";
+    lastUpReachedTop = false;
+    repsEl.textContent = "0";
+    updateTargetPill();
+    setBar(0);
+    const ex = EXERCISES.find(x => x.id === currentExerciseId);
+    exerciseNameEl.textContent = ex ? ex.name : "—";
+    setFeedback(ex ? ex.hint : "—", false);
+  }
+
+  document.getElementById("resetRepsBtn").addEventListener("click", () => resetSet());
+
+  exerciseSelectEl.addEventListener("change", () => {
+    currentExerciseId = exerciseSelectEl.value;
+    resetSet();
+  });
+
+  avatarSelectEl.addEventListener("change", () => {
+    loadAvatarByIndex(parseInt(avatarSelectEl.value, 10));
+  });
+
+  // gating states
+  let appMode = "IDLE"; // IDLE | FRAME_CHECK | WORKOUT
+  let lastFramePromptAt = 0;
+  let lastFrameOkSpokenAt = 0;
+
+  function lmOk(lm){
+    if (!lm) return false;
+    const v = (lm.visibility ?? 1);
+    if (v < FRAME_VIS_MIN) return false;
+    if (lm.x < FRAME_MARGIN || lm.x > (1-FRAME_MARGIN)) return false;
+    if (lm.y < FRAME_MARGIN || lm.y > (1-FRAME_MARGIN)) return false;
+    return true;
+  }
+
+  function isBodyFullyInFrame(poseLm){
+    if (!poseLm) return false;
+    for (const i of [11,12,23,24,27,28]) if (!lmOk(poseLm[i])) return false;
+    return true;
+  }
+
+  function frameCheckTick(poseLm){
+    repStateEl.textContent = "FRAME CHECK";
+    setBar(0);
+    setMetrics(NaN, NaN, NaN, NaN);
+
+    const ok = isBodyFullyInFrame(poseLm);
+    if (ok){
+      setFeedback(L("Great — your body is in frame. Let's start!"), true);
+      const now = performance.now();
+      if (now - lastFrameOkSpokenAt > FRAME_OK_SPEAK_COOLDOWN_MS){
+        stopAllTTS();
+        enqueueTTS(L("Great — your body is in frame. Let's start!"));
+        lastFrameOkSpokenAt = now;
       }
-    })();
-  </script>
+      appMode = "WORKOUT";
+      return;
+    }
+
+    setFeedback(L("Stand fully in frame to start."), false);
+    const now = performance.now();
+    if (now - lastFramePromptAt >= FRAME_REMIND_EVERY_MS){
+      lastFramePromptAt = now;
+      enqueueTTS(L(Math.random() < 0.5
+        ? "Please step back so your full body is in frame."
+        : "Make sure your head and feet are visible."
+      ));
+    }
+  }
+
+  function getActiveArmLM(poseLm){
+    if (!poseLm) return null;
+    let S,E,W;
+    if (ACTIVE_ARM === "left"){
+      S = mirrorPose ? poseLm[12] : poseLm[11];
+      E = mirrorPose ? poseLm[14] : poseLm[13];
+      W = mirrorPose ? poseLm[16] : poseLm[15];
+    } else {
+      S = mirrorPose ? poseLm[11] : poseLm[12];
+      E = mirrorPose ? poseLm[13] : poseLm[14];
+      W = mirrorPose ? poseLm[15] : poseLm[16];
+    }
+    if (!S || !E || !W) return null;
+    const v = Math.min(S.visibility??1, E.visibility??1, W.visibility??1);
+    return { S,E,W,v };
+  }
+
+  function updateExercise(poseLm){
+    if (setDone){
+      repStateEl.textContent = "SET DONE";
+      setFeedback(L("Set complete! Great work."), true);
+      setBar(1);
+      return;
+    }
+
+    if (!poseLm){
+      repStateEl.textContent = "WAITING";
+      setFeedback("No pose detected.", false);
+      setBar(0);
+      setMetrics(NaN, NaN, NaN, NaN);
+      return;
+    }
+
+    const arm = getActiveArmLM(poseLm);
+    if (!arm){
+      repStateEl.textContent = "WAITING";
+      setFeedback("Arm not visible.", false);
+      setBar(0);
+      setMetrics(NaN, NaN, NaN, NaN);
+      return;
+    }
+
+    const {S,E,W,v} = arm;
+    const elbowA = angleDeg(S,E,W);
+    const heightDelta = (S.y - W.y);
+    const dx = Math.abs(W.x - S.x);
+    setMetrics(elbowA, heightDelta, dx, v);
+
+    const VIS_OK = v >= 0.60;
+
+    repStateEl.textContent = phase;
+
+    if (currentExerciseId === "lateral" || currentExerciseId === "front"){
+      const downZoneY = S.y + 0.18;
+      const topZoneY  = S.y - 0.05;
+      const t = THREE.MathUtils.clamp((downZoneY - W.y) / (downZoneY - topZoneY), 0, 1);
+      setBar(t);
+
+      if (!VIS_OK) setFeedback("Move back so your arm is visible.", false);
+      else if (t < 0.78) setFeedback("Raise to shoulder height.", false);
+      else setFeedback("Good ✅", true);
+
+      if (phase === "DOWN"){
+        if (t >= 0.78 && VIS_OK){
+          phase = "UP";
+          lastUpReachedTop = true;
+        }
+      } else { // UP
+        if (t <= 0.30){
+          if (lastUpReachedTop){
+            reps += 1;
+            repsEl.textContent = String(reps);
+            updateTargetPill();
+            enqueueTTS(pickSuccessPhrase());
+            if (reps >= targetReps){
+              setDone = true;
+              stopAllTTS();
+              enqueueTTS(L("Set complete! Great work."));
+            }
+          }
+          phase = "DOWN";
+        }
+      }
+      return;
+    }
+
+    if (currentExerciseId === "curl"){
+      const t = THREE.MathUtils.clamp((170 - elbowA) / (170 - 60), 0, 1);
+      setBar(t);
+
+      if (!VIS_OK) setFeedback("Move back so your arm is visible.", false);
+      else if (t < 0.72) setFeedback("Curl higher.", false);
+      else setFeedback("Good ✅", true);
+
+      if (phase === "DOWN"){
+        if (t >= 0.72 && VIS_OK){
+          phase = "UP";
+          lastUpReachedTop = true;
+        }
+      } else {
+        if (t <= 0.25){
+          if (lastUpReachedTop){
+            reps += 1;
+            repsEl.textContent = String(reps);
+            updateTargetPill();
+            enqueueTTS(pickSuccessPhrase());
+            if (reps >= targetReps){
+              setDone = true;
+              stopAllTTS();
+              enqueueTTS(L("Set complete! Great work."));
+            }
+          }
+          phase = "DOWN";
+        }
+      }
+    }
+  }
+
+  // Boot avatar list
+  try {
+    await fetchAvatars();
+  } catch (e) {
+    console.error(e);
+    avatarNamePill.textContent = "Failed to load avatars (is tts_server running?)";
+    prevAvatarBtn.disabled = true;
+    nextAvatarBtn.disabled = true;
+    lockBtn.disabled = true;
+  }
+
+  // Start flow
+  setupStartEl.addEventListener("click", async () => {
+    if (lockedAvatarIndex === null) return;
+
+    const avatarIdx = lockedAvatarIndex;
+    currentExerciseId = setupExerciseEl.value || "lateral";
+    targetReps = Math.max(1, Math.min(500, parseInt(setupRepsEl.value || "12", 10)));
+    TTS_LANG = setupLangEl.value || "en";
+
+    landingEl.style.display = "none";
+    appEl.style.display = "block";
+
+    avatarSelectEl.value = String(avatarIdx);
+    exerciseSelectEl.value = currentExerciseId;
+    ttsLangEl.value = TTS_LANG;
+
+    resizeOverlay();
+    resizeMain3D();
+
+    loadAvatarByIndex(avatarIdx);
+
+    try {
+      await startCamera();
+    } catch (e) {
+      console.error(e);
+      setStatus("webcam failed", false);
+      return;
+    }
+
+    resetSet();
+    stopAllTTS();
+    enqueueTTS(L("Starting. Please stand fully in frame."));
+    appMode = "FRAME_CHECK";
+  });
+
+  // Preview loop
+  function previewLoop(){
+    requestAnimationFrame(previewLoop);
+    if (landingEl.style.display !== "none"){
+      resizePreview();
+      previewRenderer.render(previewScene, previewCam);
+    }
+  }
+  previewLoop();
+
+  // Main loop
+  function mainLoop(){
+    requestAnimationFrame(mainLoop);
+    if (appEl.style.display === "none") return;
+
+    resizeMain3D();
+    if (latest) driveArmsFromPose(latest);
+
+    if (appMode === "FRAME_CHECK") frameCheckTick(latest);
+    else if (appMode === "WORKOUT") updateExercise(latest);
+
+    renderer.render(scene, cam3);
+  }
+  mainLoop();
+</script>
 </body>
 </html>
