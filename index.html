@@ -74,8 +74,8 @@
 
     #metrics{ margin-top:10px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background: rgba(8,12,18,.45);
       padding:10px; display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; }
-    .mItem{ display:flex; justify-content:space-between; gap:10px; opacity:.92; }
-    .mLabel{ opacity:.75; }
+    .mItem{ display:flex; justify-content:flex-end; gap:10px; opacity:.92; }
+    .mLabel{ opacity:.75; margin-right:auto; }
     .mVal{ font-variant-numeric: tabular-nums; }
 
     #threeCanvas { position:absolute; inset:0; }
@@ -105,7 +105,7 @@
 
     <div class="panel">
       <div class="h1">Workout Setup</div>
-      <div class="sub">Pick exercise, reps, language. Camera starts after Start.</div>
+      <div class="sub">Exercises are loaded from <code>exercises.json</code>.</div>
 
       <div style="margin-top:12px;">
         <div class="label">Exercise</div>
@@ -129,7 +129,9 @@
         <button id="setupStart" class="primary" disabled>Start</button>
       </div>
 
-      <div class="tip">If avatars don’t load: ensure <code>uvicorn tts_server:app --port 8001</code> is running.</div>
+      <div class="tip">
+        If exercises don’t load: put <code>exercises.json</code> next to <code>index.html</code> and refresh.
+      </div>
     </div>
   </div>
 </div>
@@ -246,27 +248,30 @@
   import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
   import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
-  const ACTIVE_ARM = "left";
+  // ===== Paths =====
+  const EXERCISES_JSON_URL = "./exercises.json";   // <- external file
+  let ACTIVE_ARM = "left";                        // <- loaded from JSON
+
   const TTS_URL = "http://127.0.0.1:8001/tts";
   const AVATAR_LIST_URL = "http://127.0.0.1:8001/avatars";
 
+  // ===== Frame check =====
   const FRAME_VIS_MIN = 0.55;
   const FRAME_MARGIN = 0.06;
   const FRAME_REMIND_EVERY_MS = 6500;
   const FRAME_OK_SPEAK_COOLDOWN_MS = 2500;
-
-  const EXERCISES = [
-    { id: "lateral", name: "Left Lateral Raise", hint: "Raise LEFT arm to the side up to shoulder height." },
-    { id: "curl",    name: "Left Bicep Curl",   hint: "Curl LEFT wrist toward shoulder; keep elbow close." },
-    { id: "front",   name: "Left Front Raise",  hint: "Raise LEFT arm forward up to shoulder height." }
-  ];
 
   // ===== Physics-ish limits =====
   const MAX_SWING_UPPER_DEG = 95;      // shoulder/upper arm limit
   const MAX_SWING_FORE_DEG  = 130;      // elbow/forearm limit
   const MAX_STEP_DEG_PER_FRAME = 20;    // prevents snapping per frame
 
-  // Language
+
+  // ===== Exercises loaded from JSON =====
+  let EXERCISES = [];
+  let EXERCISE_MAP = new Map();
+
+  // ===== Language =====
   let TTS_LANG = "en";
   const AR = {
     "Avatar locked. Now choose exercise and reps, then press Start.": "تم تثبيت الأفاتار. اختر التمرين وعدد العدّات ثم اضغط بدء.",
@@ -275,27 +280,9 @@
     "Please step back so your full body is in frame.": "رجاءً تراجع قليلًا حتى يظهر جسمك كاملًا داخل الإطار.",
     "Make sure your head and feet are visible.": "تأكد من ظهور الرأس والقدمين داخل الإطار.",
     "Great — your body is in frame. Let's start!": "رائع — جسمك داخل الإطار. لنبدأ!",
-    "Set complete! Great work.": "تمّت المجموعة! عملٌ رائع.",
-    "Good job!": "أحسنت!",
-    "Great job!": "عملٌ رائع!",
-    "Nice rep!": "عدة ممتازة!",
-    "Perfect!": "ممتاز!"
+    "Set complete! Great work.": "تمّت المجموعة! عملٌ رائع."
   };
   const L = (s) => (TTS_LANG === "ar" ? (AR[s] || s) : s);
-
-  const SUCCESS_EN = ["Good job!", "Great job!", "Nice rep!", "Perfect!"];
-  const SUCCESS_AR = ["أحسنت!", "عملٌ رائع!", "عدة ممتازة!", "ممتاز!"];
-  let lastSuccess = "";
-  function pickSuccessPhrase() {
-    const arr = (TTS_LANG === "ar") ? SUCCESS_AR : SUCCESS_EN;
-    let c = arr[Math.floor(Math.random()*arr.length)];
-    if (arr.length > 1 && c === lastSuccess) {
-      const others = arr.filter(x => x !== lastSuccess);
-      c = others[Math.floor(Math.random()*others.length)];
-    }
-    lastSuccess = c;
-    return c;
-  }
 
   // ===== TTS queue =====
   let TTS_ENABLED = true;
@@ -374,13 +361,6 @@
   const setupLangEl = document.getElementById("setupLang");
   const setupStartEl = document.getElementById("setupStart");
 
-  EXERCISES.forEach(e => {
-    const opt = document.createElement("option");
-    opt.value = e.id;
-    opt.textContent = e.name;
-    setupExerciseEl.appendChild(opt);
-  });
-
   // ===== App refs =====
   const statusEl = document.getElementById("status");
   const poseStatusEl = document.getElementById("poseStatus");
@@ -456,6 +436,45 @@
     mVisEl.textContent = Number.isFinite(vis) ? vis.toFixed(2) : "—";
   }
 
+  // ===== Load exercises.json =====
+  async function loadExercises(){
+    const res = await fetch(EXERCISES_JSON_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Failed to load ${EXERCISES_JSON_URL}: HTTP ${res.status}`);
+    const data = await res.json();
+
+    ACTIVE_ARM = ((data.active_arm || "left").toLowerCase() === "right") ? "right" : "left";
+    EXERCISES = Array.isArray(data.exercises) ? data.exercises : [];
+    EXERCISE_MAP = new Map(EXERCISES.map(e => [e.id, e]));
+
+    // Populate BOTH dropdowns from JSON
+    setupExerciseEl.innerHTML = "";
+    exerciseSelectEl.innerHTML = "";
+
+    for (const e of EXERCISES){
+      const o1 = document.createElement("option");
+      o1.value = e.id;
+      o1.textContent = e.name || e.id;
+      setupExerciseEl.appendChild(o1);
+
+      const o2 = document.createElement("option");
+      o2.value = e.id;
+      o2.textContent = e.name || e.id;
+      exerciseSelectEl.appendChild(o2);
+    }
+
+    if (!EXERCISES.length) throw new Error("exercises.json has no exercises[]");
+  }
+
+  function pickSuccessPhraseForExercise(ex){
+    const rep = ex?.rep || {};
+    const arr = (TTS_LANG === "ar")
+      ? (rep.success_ar || ["أحسنت!"])
+      : (rep.success_en || ["Good job!"]);
+
+    if (!Array.isArray(arr) || arr.length === 0) return (TTS_LANG === "ar") ? "أحسنت!" : "Good job!";
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
   // ===== Three main scene =====
   const threeCanvas = document.getElementById("threeCanvas");
   const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, antialias:true });
@@ -506,10 +525,12 @@
   function avatarGlbPath(a){ return `./Avatars/${a.id}/${a.glb}`; }
 
   function updateStartEnabled(){
-    setupStartEl.disabled = (lockedAvatarIndex === null);
+    // Start enabled only if: exercises loaded + avatar locked
+    const exercisesOk = EXERCISES && EXERCISES.length > 0;
+    setupStartEl.disabled = !(exercisesOk && (lockedAvatarIndex !== null));
   }
 
-  // ===== Helpers for physics-ish clamp =====
+  // ===== Helpers for arm clamp =====
   function clampDeltaQuatToMaxAngle(deltaQ, maxAngleRad) {
     const q = deltaQ.clone().normalize();
     const angle = 2 * Math.acos(THREE.MathUtils.clamp(q.w, -1, 1));
@@ -581,21 +602,13 @@
     enqueueTTS(L("Avatar locked. Now choose exercise and reps, then press Start."));
   });
 
-  function populateAppSelects(){
+  function populateAvatarSelect(){
     avatarSelectEl.innerHTML = "";
     AVATARS.forEach((a,i) => {
       const opt = document.createElement("option");
       opt.value = String(i);
       opt.textContent = a.label;
       avatarSelectEl.appendChild(opt);
-    });
-
-    exerciseSelectEl.innerHTML = "";
-    EXERCISES.forEach(e => {
-      const opt = document.createElement("option");
-      opt.value = e.id;
-      opt.textContent = e.name;
-      exerciseSelectEl.appendChild(opt);
     });
   }
 
@@ -605,7 +618,7 @@
     if (!j.ok) throw new Error(j.error || "avatars ok=false");
     AVATARS = j.avatars || [];
     if (!AVATARS.length) throw new Error("no avatars returned");
-    populateAppSelects();
+    populateAvatarSelect();
     loadPreviewAvatarByIndex(0);
     updateStartEnabled();
   }
@@ -667,7 +680,6 @@
       rest.baseQ[k] = b.quaternion.clone();
     }
 
-    // ✅ Better rest directions
     let d;
     d = restDirFromSpecificChild(rig.LeftArm, rig.LeftForeArm);
     rest.restDir.LeftArm = d || getRestDirToChild(rig.LeftArm);
@@ -824,7 +836,6 @@
 
     const dotToRest = THREE.MathUtils.clamp(restDirN.dot(dirLocal), -1, 1);
 
-    // Near rest: smoothly return
     if (dotToRest > REST_DEADZONE){
       let targetQ = baseQ.clone();
       const maxStepRad = THREE.MathUtils.degToRad(MAX_STEP_DEG_PER_FRAME);
@@ -834,27 +845,22 @@
       return;
     }
 
-    // Raw swing from restDir -> dirLocal
     tmpQ.setFromUnitVectors(restDirN, dirLocal);
     let targetQ = baseQ.clone().multiply(tmpQ);
 
-    // hemisphere continuity
     if (prevQStore.dot(targetQ) < 0){
       targetQ.x*=-1; targetQ.y*=-1; targetQ.z*=-1; targetQ.w*=-1;
     }
 
-    // Clamp swing from rest
     const invBase = baseQ.clone().invert();
-    const delta = invBase.multiply(targetQ); // rest->target
+    const delta = invBase.multiply(targetQ);
     const maxSwingRad = THREE.MathUtils.degToRad(maxSwingDeg);
     const deltaClamped = clampDeltaQuatToMaxAngle(delta, maxSwingRad);
     targetQ = baseQ.clone().multiply(deltaClamped);
 
-    // Clamp per-frame step
     const maxStepRad = THREE.MathUtils.degToRad(MAX_STEP_DEG_PER_FRAME);
     targetQ = clampTargetTowardsPrev(prevQStore, targetQ, maxStepRad);
 
-    // Apply
     bone.quaternion.slerp(targetQ, alpha);
     prevQStore.copy(targetQ);
   }
@@ -888,7 +894,7 @@
   }
 
   // ===== Workout + rep counting + set-complete TTS once =====
-  let currentExerciseId = "lateral";
+  let currentExerciseId = ""; // set after exercises load
   let targetReps = 12;
   let reps = 0;
   let setDone = false;
@@ -907,14 +913,22 @@
     repsEl.textContent = "0";
     updateTargetPill();
     setBar(0);
-    const ex = EXERCISES.find(x => x.id === currentExerciseId);
-    exerciseNameEl.textContent = ex ? ex.name : "—";
-    setFeedback(ex ? ex.hint : "—", false);
+
+    const ex = EXERCISE_MAP.get(currentExerciseId);
+    exerciseNameEl.textContent = ex?.name || "—";
+    setFeedback(ex?.hint || "—", false);
   }
 
   document.getElementById("resetRepsBtn").addEventListener("click", () => resetSet());
-  exerciseSelectEl.addEventListener("change", () => { currentExerciseId = exerciseSelectEl.value; resetSet(); });
-  avatarSelectEl.addEventListener("change", () => { loadAvatarByIndex(parseInt(avatarSelectEl.value, 10)); });
+
+  exerciseSelectEl.addEventListener("change", () => {
+    currentExerciseId = exerciseSelectEl.value;
+    resetSet();
+  });
+
+  avatarSelectEl.addEventListener("change", () => {
+    loadAvatarByIndex(parseInt(avatarSelectEl.value, 10));
+  });
 
   // gating states
   let appMode = "IDLE"; // IDLE | FRAME_CHECK | WORKOUT
@@ -990,6 +1004,10 @@
   }
 
   function updateExercise(poseLm){
+    const ex = EXERCISE_MAP.get(currentExerciseId);
+    const repCfg = ex?.rep || {};
+    const repType = repCfg.type || "raise";
+
     if (setDone){
       repStateEl.textContent = "SET DONE";
       setFeedback(L("Set complete! Great work."), true);
@@ -1024,23 +1042,28 @@
     const VIS_OK = v >= 0.60;
     repStateEl.textContent = phase;
 
-    if (currentExerciseId === "lateral" || currentExerciseId === "front"){
-      const downZoneY = S.y + 0.18;
-      const topZoneY  = S.y - 0.05;
+    if (repType === "raise"){
+      const downZoneOffset = (typeof repCfg.down_zone_offset === "number") ? repCfg.down_zone_offset : 0.18;
+      const topZoneOffset  = (typeof repCfg.top_zone_offset === "number") ? repCfg.top_zone_offset : -0.05;
+      const upTh   = (typeof repCfg.up_threshold === "number") ? repCfg.up_threshold : 0.78;
+      const downTh = (typeof repCfg.down_threshold === "number") ? repCfg.down_threshold : 0.30;
+
+      const downZoneY = S.y + downZoneOffset;
+      const topZoneY  = S.y + topZoneOffset;
       const t = THREE.MathUtils.clamp((downZoneY - W.y) / (downZoneY - topZoneY), 0, 1);
       setBar(t);
 
       if (!VIS_OK) setFeedback("Move back so your arm is visible.", false);
-      else if (t < 0.78) setFeedback("Raise to shoulder height.", false);
+      else if (t < upTh) setFeedback("Raise to shoulder height.", false);
       else setFeedback("Good ✅", true);
 
       if (phase === "DOWN"){
-        if (t >= 0.78 && VIS_OK){
+        if (t >= upTh && VIS_OK){
           phase = "UP";
           lastUpReachedTop = true;
         }
       } else {
-        if (t <= 0.30){
+        if (t <= downTh){
           if (lastUpReachedTop){
             reps += 1;
             repsEl.textContent = String(reps);
@@ -1050,7 +1073,7 @@
               setDone = true;
               setCompleteSpoken = false;
             } else {
-              enqueueTTS(pickSuccessPhrase());
+              enqueueTTS(pickSuccessPhraseForExercise(ex));
             }
           }
           phase = "DOWN";
@@ -1059,21 +1082,26 @@
       return;
     }
 
-    if (currentExerciseId === "curl"){
-      const t = THREE.MathUtils.clamp((170 - elbowA) / (170 - 60), 0, 1);
+    if (repType === "curl"){
+      const elbowDown = (typeof repCfg.elbow_down_angle === "number") ? repCfg.elbow_down_angle : 170;
+      const elbowTop  = (typeof repCfg.elbow_top_angle === "number") ? repCfg.elbow_top_angle : 60;
+      const upTh   = (typeof repCfg.up_threshold === "number") ? repCfg.up_threshold : 0.72;
+      const downTh = (typeof repCfg.down_threshold === "number") ? repCfg.down_threshold : 0.25;
+
+      const t = THREE.MathUtils.clamp((elbowDown - elbowA) / (elbowDown - elbowTop), 0, 1);
       setBar(t);
 
       if (!VIS_OK) setFeedback("Move back so your arm is visible.", false);
-      else if (t < 0.72) setFeedback("Curl higher.", false);
+      else if (t < upTh) setFeedback("Curl higher.", false);
       else setFeedback("Good ✅", true);
 
       if (phase === "DOWN"){
-        if (t >= 0.72 && VIS_OK){
+        if (t >= upTh && VIS_OK){
           phase = "UP";
           lastUpReachedTop = true;
         }
       } else {
-        if (t <= 0.25){
+        if (t <= downTh){
           if (lastUpReachedTop){
             reps += 1;
             repsEl.textContent = String(reps);
@@ -1083,7 +1111,7 @@
               setDone = true;
               setCompleteSpoken = false;
             } else {
-              enqueueTTS(pickSuccessPhrase());
+              enqueueTTS(pickSuccessPhraseForExercise(ex));
             }
           }
           phase = "DOWN";
@@ -1092,9 +1120,23 @@
     }
   }
 
-  // ===== Boot avatars =====
-  try { await fetchAvatars(); }
-  catch (e) {
+  // ===== Boot order: exercises -> avatars =====
+  try {
+    await loadExercises();
+    currentExerciseId = EXERCISES[0].id;
+    // set defaults in selects
+    setupExerciseEl.value = currentExerciseId;
+    exerciseSelectEl.value = currentExerciseId;
+    updateStartEnabled();
+  } catch (e) {
+    console.error(e);
+    setupExerciseEl.innerHTML = `<option value="">Failed to load exercises.json</option>`;
+    exerciseSelectEl.innerHTML = `<option value="">Failed to load exercises.json</option>`;
+  }
+
+  try {
+    await fetchAvatars();
+  } catch (e) {
     console.error(e);
     avatarNamePill.textContent = "Failed to load avatars (is tts_server running?)";
     prevAvatarBtn.disabled = true;
@@ -1105,9 +1147,10 @@
   // ===== Start flow =====
   setupStartEl.addEventListener("click", async () => {
     if (lockedAvatarIndex === null) return;
+    if (!EXERCISES || !EXERCISES.length) return;
 
     const avatarIdx = lockedAvatarIndex;
-    currentExerciseId = setupExerciseEl.value || "lateral";
+    currentExerciseId = setupExerciseEl.value || EXERCISES[0].id;
     targetReps = Math.max(1, Math.min(500, parseInt(setupRepsEl.value || "12", 10)));
     TTS_LANG = setupLangEl.value || "en";
 

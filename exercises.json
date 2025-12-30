@@ -1,0 +1,62 @@
+{
+  "active_arm": "left",
+  "exercises": [
+    {
+      "id": "lateral",
+      "name": "Left Lateral Raise",
+      "hint": "Raise LEFT arm to the side up to shoulder height.",
+      "rep": {
+        "type": "raise",
+        "up_threshold": 0.78,
+        "down_threshold": 0.30,
+        "down_zone_offset": 0.18,
+        "top_zone_offset": -0.05,
+        "success_en": ["Good job!", "Great job!", "Nice rep!", "Perfect!"],
+        "success_ar": ["أحسنت!", "عملٌ رائع!", "عدة ممتازة!", "ممتاز!"]
+      }
+    },
+    {
+      "id": "triceps_kickback",
+      "name": "Left Triceps Kickback",
+      "hint": "Keep your upper arm close to your torso. Extend your forearm backward until nearly straight, then return.",
+      "rep": {
+      "type": "curl",
+      "up_threshold": 0.72,
+      "down_threshold": 0.25,
+      "elbow_down_angle": 80,
+      "elbow_top_angle": 170,
+      "success_en": ["Nice kickback!", "Great extension!", "Good rep!", "Perfect!"],
+      "success_ar": ["ممتاز!", "تمديد رائع!", "عدة ممتازة!", "أحسنت!"]
+        }
+    },
+
+    {
+      "id": "front",
+      "name": "Left Front Raise",
+      "hint": "Raise LEFT arm forward up to shoulder height.",
+      "rep": {
+        "type": "raise",
+        "up_threshold": 0.78,
+        "down_threshold": 0.30,
+        "down_zone_offset": 0.18,
+        "top_zone_offset": -0.05,
+        "success_en": ["Good job!", "Great job!", "Nice rep!", "Perfect!"],
+        "success_ar": ["أحسنت!", "عملٌ رائع!", "عدة ممتازة!", "ممتاز!"]
+      }
+    },
+    {
+      "id": "curl",
+      "name": "Left Bicep Curl",
+      "hint": "Curl LEFT wrist toward shoulder; keep elbow close.",
+      "rep": {
+        "type": "curl",
+        "up_threshold": 0.72,
+        "down_threshold": 0.25,
+        "elbow_down_angle": 170,
+        "elbow_top_angle": 60,
+        "success_en": ["Good job!", "Great job!", "Nice rep!", "Perfect!"],
+        "success_ar": ["أحسنت!", "عملٌ رائع!", "عدة ممتازة!", "ممتاز!"]
+      }
+    }
+  ]
+}
