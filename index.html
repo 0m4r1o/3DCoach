@@ -261,6 +261,11 @@
     { id: "front",   name: "Left Front Raise",  hint: "Raise LEFT arm forward up to shoulder height." }
   ];
 
+  // ===== Physics-ish limits =====
+  const MAX_SWING_UPPER_DEG = 95;      // shoulder/upper arm limit
+  const MAX_SWING_FORE_DEG  = 130;      // elbow/forearm limit
+  const MAX_STEP_DEG_PER_FRAME = 20;    // prevents snapping per frame
+
   // Language
   let TTS_LANG = "en";
   const AR = {
@@ -292,7 +297,7 @@
     return c;
   }
 
-  // TTS queue
+  // ===== TTS queue =====
   let TTS_ENABLED = true;
   let currentAudio = null;
   const ttsQueue = [];
@@ -451,7 +456,7 @@
     mVisEl.textContent = Number.isFinite(vis) ? vis.toFixed(2) : "—";
   }
 
-  // Three main scene
+  // ===== Three main scene =====
   const threeCanvas = document.getElementById("threeCanvas");
   const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, antialias:true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -472,7 +477,7 @@
   }
   window.addEventListener("resize", () => { resizeMain3D(); resizeOverlay(); });
 
-  // Preview scene
+  // ===== Preview scene =====
   const previewCanvas = document.getElementById("avatarPreview");
   const previewRenderer = new THREE.WebGLRenderer({ canvas: previewCanvas, antialias:true });
   previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -504,7 +509,36 @@
     setupStartEl.disabled = (lockedAvatarIndex === null);
   }
 
-  // Preview avatar loading
+  // ===== Helpers for physics-ish clamp =====
+  function clampDeltaQuatToMaxAngle(deltaQ, maxAngleRad) {
+    const q = deltaQ.clone().normalize();
+    const angle = 2 * Math.acos(THREE.MathUtils.clamp(q.w, -1, 1));
+    if (!isFinite(angle) || angle < 1e-6) return q;
+    if (angle <= maxAngleRad) return q;
+
+    const s = Math.sqrt(Math.max(1e-12, 1 - q.w*q.w));
+    const axis = new THREE.Vector3(q.x/s, q.y/s, q.z/s).normalize();
+    return new THREE.Quaternion().setFromAxisAngle(axis, maxAngleRad);
+  }
+
+  function clampTargetTowardsPrev(prevQ, targetQ, maxStepRad) {
+    const dot = THREE.MathUtils.clamp(prevQ.dot(targetQ), -1, 1);
+    const angle = 2 * Math.acos(Math.abs(dot));
+    if (!isFinite(angle) || angle < 1e-6) return targetQ;
+    if (angle <= maxStepRad) return targetQ;
+
+    const t = maxStepRad / angle;
+    return prevQ.clone().slerp(targetQ, t);
+  }
+
+  function restDirFromSpecificChild(parentBone, childBone) {
+    if (!parentBone || !childBone) return null;
+    const v = new THREE.Vector3(childBone.position.x, childBone.position.y, childBone.position.z);
+    if (v.length() < 1e-6) return null;
+    return v.normalize();
+  }
+
+  // ===== Preview avatar loading =====
   let previewAvatar = null;
   function clearPreviewAvatar(){
     if (!previewAvatar) return;
@@ -576,7 +610,7 @@
     updateStartEnabled();
   }
 
-  // Avatar rigging
+  // ===== Rigging + arm driving =====
   let avatar = null;
   const rig = { LeftArm:null, LeftForeArm:null, RightArm:null, RightForeArm:null };
   const rest = { baseQ:{}, restDir:{} };
@@ -589,6 +623,7 @@
   let prevInit = false;
 
   function getRestDirToChild(bone){
+    if (!bone) return new THREE.Vector3(0,-1,0);
     const child = bone.children.find(c => c.isBone) || null;
     if (!child) return new THREE.Vector3(0,-1,0);
     const v = new THREE.Vector3(child.position.x, child.position.y, child.position.z);
@@ -623,13 +658,26 @@
     rig.RightArm = findBoneFuzzy(bones, ["RightArm","RightUpperArm","UpperArm_R","upperarm_r","r_upperarm","mixamorig:RightArm"]);
     rig.RightForeArm = findBoneFuzzy(bones, ["RightForeArm","RightLowerArm","LowerArm_R","lowerarm_r","r_forearm","mixamorig:RightForeArm"]);
 
-    rest.baseQ = {}; rest.restDir = {};
+    rest.baseQ = {};
+    rest.restDir = {};
+
     for (const k of Object.keys(rig)){
       const b = rig[k];
       if (!b) continue;
       rest.baseQ[k] = b.quaternion.clone();
-      rest.restDir[k] = getRestDirToChild(b).clone();
     }
+
+    // ✅ Better rest directions
+    let d;
+    d = restDirFromSpecificChild(rig.LeftArm, rig.LeftForeArm);
+    rest.restDir.LeftArm = d || getRestDirToChild(rig.LeftArm);
+
+    d = restDirFromSpecificChild(rig.RightArm, rig.RightForeArm);
+    rest.restDir.RightArm = d || getRestDirToChild(rig.RightArm);
+
+    rest.restDir.LeftForeArm = getRestDirToChild(rig.LeftForeArm);
+    rest.restDir.RightForeArm = getRestDirToChild(rig.RightForeArm);
+
     for (const k of Object.keys(prevTargetQ)){
       prevTargetQ[k].copy(rest.baseQ[k] || new THREE.Quaternion());
     }
@@ -678,7 +726,7 @@
     });
   }
 
-  // Pose
+  // ===== Pose =====
   let latest = null;
   let useFrontCamera = true;
   let mirrorPose = true;
@@ -752,7 +800,7 @@
     setStatus("webcam running ✅", true);
   }
 
-  // Drive avatar arms
+  // ===== Drive avatar arms (physics-safe) =====
   function vecFrom(lmA, lmB){
     const ax=lmA.x, ay=1.0-lmA.y;
     const bx=lmB.x, by=1.0-lmB.y;
@@ -765,29 +813,48 @@
   const restDirN = new THREE.Vector3();
   const REST_DEADZONE = Math.cos(THREE.MathUtils.degToRad(8));
 
-  function applyBoneDirStable(bone, baseQ, restDir, targetDirWorld, alpha, prevQStore){
+  function applyBoneDirStable(bone, baseQ, restDir, targetDirWorld, alpha, prevQStore, maxSwingDeg){
     if (!bone || !baseQ || !restDir || !prevInit) return;
 
     bone.parent.getWorldQuaternion(invParentQ);
     invParentQ.invert();
-    dirLocal.copy(targetDirWorld).applyQuaternion(invParentQ).normalize();
 
+    dirLocal.copy(targetDirWorld).applyQuaternion(invParentQ).normalize();
     restDirN.copy(restDir).normalize();
+
     const dotToRest = THREE.MathUtils.clamp(restDirN.dot(dirLocal), -1, 1);
 
+    // Near rest: smoothly return
     if (dotToRest > REST_DEADZONE){
-      bone.quaternion.slerp(baseQ, alpha);
-      prevQStore.copy(baseQ);
+      let targetQ = baseQ.clone();
+      const maxStepRad = THREE.MathUtils.degToRad(MAX_STEP_DEG_PER_FRAME);
+      targetQ = clampTargetTowardsPrev(prevQStore, targetQ, maxStepRad);
+      bone.quaternion.slerp(targetQ, alpha);
+      prevQStore.copy(targetQ);
       return;
     }
 
+    // Raw swing from restDir -> dirLocal
     tmpQ.setFromUnitVectors(restDirN, dirLocal);
-    const targetQ = baseQ.clone().multiply(tmpQ);
+    let targetQ = baseQ.clone().multiply(tmpQ);
 
+    // hemisphere continuity
     if (prevQStore.dot(targetQ) < 0){
       targetQ.x*=-1; targetQ.y*=-1; targetQ.z*=-1; targetQ.w*=-1;
     }
 
+    // Clamp swing from rest
+    const invBase = baseQ.clone().invert();
+    const delta = invBase.multiply(targetQ); // rest->target
+    const maxSwingRad = THREE.MathUtils.degToRad(maxSwingDeg);
+    const deltaClamped = clampDeltaQuatToMaxAngle(delta, maxSwingRad);
+    targetQ = baseQ.clone().multiply(deltaClamped);
+
+    // Clamp per-frame step
+    const maxStepRad = THREE.MathUtils.degToRad(MAX_STEP_DEG_PER_FRAME);
+    targetQ = clampTargetTowardsPrev(prevQStore, targetQ, maxStepRad);
+
+    // Apply
     bone.quaternion.slerp(targetQ, alpha);
     prevQStore.copy(targetQ);
   }
@@ -811,16 +878,16 @@
     const okR = (RS.visibility??1)>vMin && (RE.visibility??1)>vMin && (RW.visibility??1)>vMin;
 
     if (okL){
-      applyBoneDirStable(rig.LeftArm, rest.baseQ.LeftArm, rest.restDir.LeftArm, vecFrom(LS,LE), smooth, prevTargetQ.LeftArm);
-      applyBoneDirStable(rig.LeftForeArm, rest.baseQ.LeftForeArm, rest.restDir.LeftForeArm, vecFrom(LE,LW), smooth, prevTargetQ.LeftForeArm);
+      applyBoneDirStable(rig.LeftArm, rest.baseQ.LeftArm, rest.restDir.LeftArm, vecFrom(LS,LE), smooth, prevTargetQ.LeftArm, MAX_SWING_UPPER_DEG);
+      applyBoneDirStable(rig.LeftForeArm, rest.baseQ.LeftForeArm, rest.restDir.LeftForeArm, vecFrom(LE,LW), smooth, prevTargetQ.LeftForeArm, MAX_SWING_FORE_DEG);
     }
     if (okR){
-      applyBoneDirStable(rig.RightArm, rest.baseQ.RightArm, rest.restDir.RightArm, vecFrom(RS,RE), smooth, prevTargetQ.RightArm);
-      applyBoneDirStable(rig.RightForeArm, rest.baseQ.RightForeArm, rest.restDir.RightForeArm, vecFrom(RE,RW), smooth, prevTargetQ.RightForeArm);
+      applyBoneDirStable(rig.RightArm, rest.baseQ.RightArm, rest.restDir.RightArm, vecFrom(RS,RE), smooth, prevTargetQ.RightArm, MAX_SWING_UPPER_DEG);
+      applyBoneDirStable(rig.RightForeArm, rest.baseQ.RightForeArm, rest.restDir.RightForeArm, vecFrom(RE,RW), smooth, prevTargetQ.RightForeArm, MAX_SWING_FORE_DEG);
     }
   }
 
-  // Workout + rep + set complete speaking once
+  // ===== Workout + rep counting + set-complete TTS once =====
   let currentExerciseId = "lateral";
   let targetReps = 12;
   let reps = 0;
@@ -1025,7 +1092,7 @@
     }
   }
 
-  // ===== Boot avatars + populate dropdowns =====
+  // ===== Boot avatars =====
   try { await fetchAvatars(); }
   catch (e) {
     console.error(e);
@@ -1065,7 +1132,7 @@
     appMode = "FRAME_CHECK";
   });
 
-  // Preview loop
+  // ===== Preview loop =====
   function previewLoop(){
     requestAnimationFrame(previewLoop);
     if (landingEl.style.display !== "none"){
@@ -1075,14 +1142,14 @@
   }
   previewLoop();
 
-  // Main loop
+  // ===== Main loop =====
   function mainLoop(){
     requestAnimationFrame(mainLoop);
     if (appEl.style.display === "none") return;
 
     resizeMain3D();
-
     if (latest) driveArmsFromPose(latest);
+
     if (appMode === "FRAME_CHECK") frameCheckTick(latest);
     else if (appMode === "WORKOUT") updateExercise(latest);
 
@@ -1090,10 +1157,8 @@
   }
   mainLoop();
 
-  // ===== Three preview + renderer init =====
+  // Init sizes + start button state
   resizeMain3D(); resizeOverlay(); resizePreview();
-
-  // ===== Enable Start only after lock =====
   updateStartEnabled();
 </script>
 </body>
