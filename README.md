@@ -81,6 +81,7 @@ This project enables seamless integration of pose detection, avatar animation, a
     │   └── Avatar3
     ├── README.md
     ├── index.html
+    ├── exercises.json
     ├── pose_landmarker_full.task
     ├── pose_ws_server.py
     └── tts_server.py
