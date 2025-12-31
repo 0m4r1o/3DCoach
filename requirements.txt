@@ -1,0 +1,6 @@
+fastapi==0.128.0
+mediapipe==0.10.31
+openai==2.14.0
+opencv_python==4.12.0.88
+pydantic==2.12.5
+websockets==15.0.1
